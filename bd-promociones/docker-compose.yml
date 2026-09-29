@@ -1,0 +1,15 @@
+services:
+  mongo-promociones:
+    image: mongo:7
+    container_name: mongo-promociones
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_DATABASE: promociones_db
+    volumes:
+      # seed.js se ejecuta solo la primera vez que se crea el volumen
+      - ./seed.js:/docker-entrypoint-initdb.d/seed.js:ro
+      - mongo_data:/data/db
+
+volumes:
+  mongo_data:
