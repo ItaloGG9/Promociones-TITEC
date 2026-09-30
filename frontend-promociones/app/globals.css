@@ -1,0 +1,21 @@
+@import "tailwindcss";
+
+@theme {
+  /* Colores de la marca Tite */
+  --color-brand-navy: #2F4374;
+  --color-brand-accent: #5B73A8;
+  --color-brand-light: #EEF1F8;
+  --color-brand-border: #D8DFF0;
+  
+  /* Colores de estado (badges y alertas) */
+  --color-status-success-text: #1A6640;
+  --color-status-success-bg: #E2F4EA;
+  --color-status-danger-text: #B3261E;
+  --color-status-danger-bg: #FDF0F2;
+  --color-status-neutral-text: #6B7A9A;
+  --color-status-neutral-bg: #F0F0F5;
+}
+
+body {
+  background-color: #F8F9FA; /* El fondo claro acordado */
+}
