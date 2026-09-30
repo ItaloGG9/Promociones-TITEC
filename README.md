@@ -18,4 +18,4 @@ Responsable: Fernando Zamora
 
 Rol: Calidad
 Ítems: CA1, CA2
-Responsable: ?
+Responsable: Nicolas Tapia
