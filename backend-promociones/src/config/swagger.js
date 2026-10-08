@@ -9,11 +9,15 @@ const options = {
       description: 'API del módulo de promociones para gestión y validación de cupones de descuento.'
     },
     servers: [
-      {
-        url: 'http://localhost:3005',
-        description: 'Servidor de desarrollo local'
-      }
-    ]
+  {
+    url: 'https://promociones-titec-production.up.railway.app',
+    description: 'Servidor de Producción (Railway)'
+  },
+  {
+    url: 'http://localhost:3005',
+    description: 'Servidor de desarrollo local'
+  }
+],
   },
   apis: ['./src/routes/*.js']
 };
