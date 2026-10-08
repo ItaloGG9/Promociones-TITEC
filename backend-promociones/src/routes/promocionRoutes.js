@@ -19,8 +19,8 @@ const controller = require('../controllers/promocionController');
  *               nombre_codigo: { type: string, example: "FIESTA2026" }
  *               id_evento: { type: string, example: "evt-123" }
  *               porcentaje_descuento: { type: number, example: 20 }
- *               fecha_inicio: { type: string, format: date-time }
- *               fecha_fin: { type: string, format: date-time }
+ *               fecha_inicio: { type: string, format: date-time, example: "2026-10-08T00:00:00.000Z" }
+ *               fecha_fin: { type: string, format: date-time, example: "2026-10-15T23:59:59.000Z" }
  *               cantidad_codigos: { type: number, example: 100 }
  *               minimo_entradas: { type: number, example: 2 }
  *               max_usos_por_cuenta: { type: number, example: 1 }
