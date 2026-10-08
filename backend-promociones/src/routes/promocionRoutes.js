@@ -63,10 +63,10 @@ router.get('/api/v1/promociones/evento/:id_evento', controller.listarPorEvento);
  *           schema:
  *             type: object
  *             properties:
- *               fecha_inicio: { type: string, format: date-time }
- *               fecha_fin: { type: string, format: date-time }
- *               cantidad_codigos: { type: number }
- *               activo: { type: boolean }
+ *               fecha_inicio: { type: string, format: date-time, example: "2026-10-08T00:00:00.000Z" }
+ *               fecha_fin: { type: string, format: date-time, example: "2026-10-20T23:59:59.000Z" }
+ *               cantidad_codigos: { type: number, example: 150 }
+ *               activo: { type: boolean, example: true }
  *     responses:
  *       200: { description: Promoción actualizada exitosamente }
  *       400: { description: Parámetros inválidos o intento de modificar cupón usado }
