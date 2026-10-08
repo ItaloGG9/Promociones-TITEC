@@ -19,7 +19,7 @@ export default function VistaComprador() {
     setResultado(null);
 
     try {
-      const response = await fetch(`https://promociones-titec-production.up.railway.app/promociones/validar/${promoSeleccionada}`, {
+      const response = await fetch(`https://promociones-titec-production.up.railway.app/promociones/validar/${promoSeleccionada}`, { 
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
