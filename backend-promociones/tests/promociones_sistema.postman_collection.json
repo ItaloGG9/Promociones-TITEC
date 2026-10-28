@@ -1,0 +1,1510 @@
+{
+  "info": {
+    "_postman_id": "promociones-titec-pruebas-sistema",
+    "name": "Promociones TITEC - Pruebas del Sistema",
+    "description": "Pruebas del sistema del microservicio de Promociones.\n\nRequisitos: backend corriendo (`npm start` en backend-promociones) con MongoDB.\nEjecutar la colección completa en orden con el Collection Runner (o `newman run`). Cada ejecución genera códigos y eventos únicos, así que no depende del seed ni hay que limpiar la BD.\n\nCambiar la variable `baseUrl` si el servicio no corre en http://localhost:3005.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "if (!pm.collectionVariables.get('run') || pm.info.requestName.startsWith('1.1')) {",
+          "  const run = Date.now().toString(36).toUpperCase();",
+          "  const DAY = 24 * 60 * 60 * 1000;",
+          "  const now = Date.now();",
+          "  const v = {",
+          "    run,",
+          "    id_evento: 'evt-pm-' + run,",
+          "    id_evento_sin_promo: 'evt-sin-promo-' + run,",
+          "    codigo_vigente: 'PM' + run,",
+          "    codigo_vigente_min: ('PM' + run).toLowerCase(),",
+          "    codigo_grupo: 'GRUPO' + run,",
+          "    codigo_expirado: 'EXP' + run,",
+          "    codigo_invalido: 'INV' + run,",
+          "    usuario_a: 'usr-a-' + run,",
+          "    usuario_b: 'usr-b-' + run,",
+          "    usuario_c: 'usr-c-' + run,",
+          "    fecha_ayer: new Date(now - DAY).toISOString(),",
+          "    fecha_mes: new Date(now + 30 * DAY).toISOString(),",
+          "    fecha_dos_meses: new Date(now + 60 * DAY).toISOString(),",
+          "  };",
+          "  Object.entries(v).forEach(([k, val]) => pm.collectionVariables.set(k, val));",
+          "}"
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3005"
+    }
+  ],
+  "item": [
+    {
+      "name": "1. HU-01 Crear promoción",
+      "item": [
+        {
+          "name": "1.1 Crear promoción vigente (201)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/promociones",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "promociones"
+              ]
+            },
+            "description": "Se envía el código en minúsculas para verificar que se normaliza a MAYÚSCULAS.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre_codigo\": \"{{codigo_vigente_min}}\",\n  \"id_evento\": \"{{id_evento}}\",\n  \"porcentaje_descuento\": 20,\n  \"fecha_inicio\": \"{{fecha_ayer}}\",\n  \"fecha_fin\": \"{{fecha_mes}}\",\n  \"cantidad_codigos\": 100\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                  "pm.test('Responde en menos de 2000 ms', () => pm.expect(pm.response.responseTime).to.be.below(2000));",
+                  "const p = pm.response.json();",
+                  "pm.test('Retorna _id', () => pm.expect(p._id).to.be.a('string'));",
+                  "pm.test('Código guardado en MAYÚSCULAS', () => pm.expect(p.nombre_codigo).to.eql(pm.collectionVariables.get('codigo_vigente')));",
+                  "pm.test('Valores por defecto (activo, usos, mínimos)', () => {",
+                  "  pm.expect(p.activo).to.eql(true);",
+                  "  pm.expect(p.usos_actuales).to.eql(0);",
+                  "  pm.expect(p.minimo_entradas).to.eql(1);",
+                  "  pm.expect(p.max_usos_por_cuenta).to.eql(1);",
+                  "});",
+                  "pm.collectionVariables.set('id_vigente', p._id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "1.2 Crear promoción grupal: mínimo 4 entradas (201)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/promociones",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "promociones"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre_codigo\": \"{{codigo_grupo}}\",\n  \"id_evento\": \"{{id_evento}}\",\n  \"porcentaje_descuento\": 30,\n  \"fecha_inicio\": \"{{fecha_ayer}}\",\n  \"fecha_fin\": \"{{fecha_mes}}\",\n  \"cantidad_codigos\": 10,\n  \"minimo_entradas\": 4,\n  \"max_usos_por_cuenta\": 2\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                  "const p = pm.response.json();",
+                  "pm.test('Guarda minimo_entradas y max_usos_por_cuenta', () => { pm.expect(p.minimo_entradas).to.eql(4); pm.expect(p.max_usos_por_cuenta).to.eql(2); });",
+                  "pm.collectionVariables.set('id_grupo', p._id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "1.3 Crear promoción ya expirada (201)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/promociones",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "promociones"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre_codigo\": \"{{codigo_expirado}}\",\n  \"id_evento\": \"{{id_evento}}\",\n  \"porcentaje_descuento\": 40,\n  \"fecha_inicio\": \"2025-01-01T00:00:00.000Z\",\n  \"fecha_fin\": \"2025-02-01T00:00:00.000Z\",\n  \"cantidad_codigos\": 10\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set('id_expirado', pm.response.json()._id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "1.4 Crear código duplicado (400)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/promociones",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "promociones"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre_codigo\": \"{{codigo_vigente}}\",\n  \"id_evento\": \"{{id_evento}}\",\n  \"porcentaje_descuento\": 10,\n  \"fecha_inicio\": \"{{fecha_ayer}}\",\n  \"fecha_fin\": \"{{fecha_mes}}\",\n  \"cantidad_codigos\": 5\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('Mensaje: ya existe', () => pm.expect(pm.response.json().mensaje).to.include('ya existe'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "1.5 Crear con porcentaje fuera de rango 1-100 (400)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/promociones",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "promociones"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre_codigo\": \"{{codigo_invalido}}\",\n  \"id_evento\": \"{{id_evento}}\",\n  \"porcentaje_descuento\": 150,\n  \"fecha_inicio\": \"{{fecha_ayer}}\",\n  \"fecha_fin\": \"{{fecha_mes}}\",\n  \"cantidad_codigos\": 5\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "1.6 Crear sin campos obligatorios (400)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/promociones",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "promociones"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id_evento\": \"{{id_evento}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "2. Listar promociones por evento",
+      "item": [
+        {
+          "name": "2.1 Listar promociones del evento (200)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/promociones/evento/{{id_evento}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "promociones",
+                "evento",
+                "{{id_evento}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Responde en menos de 2000 ms', () => pm.expect(pm.response.responseTime).to.be.below(2000));",
+                  "const lista = pm.response.json();",
+                  "pm.test('Retorna arreglo con las 3 promociones creadas', () => { pm.expect(lista).to.be.an('array'); pm.expect(lista.length).to.eql(3); });",
+                  "pm.test('Todas pertenecen al evento', () => lista.forEach(p => pm.expect(p.id_evento).to.eql(pm.collectionVariables.get('id_evento'))));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "2.2 Listar evento sin promociones (200, vacío)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/promociones/evento/{{id_evento_sin_promo}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "promociones",
+                "evento",
+                "{{id_evento_sin_promo}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Arreglo vacío', () => pm.expect(pm.response.json()).to.eql([]));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "3. Checkout - Validar código",
+      "item": [
+        {
+          "name": "3.1 Código vigente (200, valido=true)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/promociones/validar/{{codigo_vigente}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "promociones",
+                "validar",
+                "{{codigo_vigente}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id_evento\": \"{{id_evento}}\",\n  \"cantidad_entradas\": 2,\n  \"precio_base\": 15000,\n  \"usuario\": {\n    \"id_usuario\": \"{{usuario_a}}\",\n    \"rol_usuario\": \"cliente\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Responde en menos de 2000 ms', () => pm.expect(pm.response.responseTime).to.be.below(2000));",
+                  "const r = pm.response.json();",
+                  "pm.test('valido = true y 20% de descuento', () => { pm.expect(r.valido).to.eql(true); pm.expect(r.porcentaje_descuento).to.eql(20); });",
+                  "pm.test('Cumple contrato Checkout (valido, porcentaje_descuento, id_evento)', () => pm.expect(r).to.have.all.keys('valido', 'porcentaje_descuento', 'id_evento'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "3.2 Código en minúsculas también es válido (200)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/promociones/validar/{{codigo_vigente_min}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "promociones",
+                "validar",
+                "{{codigo_vigente_min}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id_evento\": \"{{id_evento}}\",\n  \"cantidad_entradas\": 2,\n  \"precio_base\": 15000,\n  \"usuario\": {\n    \"id_usuario\": \"{{usuario_a}}\",\n    \"rol_usuario\": \"cliente\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('valido = true', () => pm.expect(pm.response.json().valido).to.eql(true));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "3.3 Código inexistente (404)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/promociones/validar/NOEXISTE{{run}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "promociones",
+                "validar",
+                "NOEXISTE{{run}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id_evento\": \"{{id_evento}}\",\n  \"cantidad_entradas\": 2,\n  \"precio_base\": 15000,\n  \"usuario\": {\n    \"id_usuario\": \"{{usuario_a}}\",\n    \"rol_usuario\": \"cliente\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 404', () => pm.response.to.have.status(404));",
+                  "pm.test('valido = false', () => pm.expect(pm.response.json().valido).to.eql(false));",
+                  "pm.test('Mensaje: no existe', () => pm.expect(pm.response.json().mensaje).to.include('no existe'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "3.4 Parámetros incompletos (400)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/promociones/validar/{{codigo_vigente}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "promociones",
+                "validar",
+                "{{codigo_vigente}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id_evento\": \"{{id_evento}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('valido = false', () => pm.expect(pm.response.json().valido).to.eql(false));",
+                  "pm.test('Mensaje: incompletos', () => pm.expect(pm.response.json().mensaje).to.include('incompletos'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "3.5 Código de otro evento (400)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/promociones/validar/{{codigo_vigente}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "promociones",
+                "validar",
+                "{{codigo_vigente}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id_evento\": \"{{id_evento_sin_promo}}\",\n  \"cantidad_entradas\": 2,\n  \"precio_base\": 15000,\n  \"usuario\": {\n    \"id_usuario\": \"{{usuario_a}}\",\n    \"rol_usuario\": \"cliente\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('valido = false', () => pm.expect(pm.response.json().valido).to.eql(false));",
+                  "pm.test('Mensaje: no pertenece', () => pm.expect(pm.response.json().mensaje).to.include('no pertenece'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "3.6 Código expirado (400)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/promociones/validar/{{codigo_expirado}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "promociones",
+                "validar",
+                "{{codigo_expirado}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id_evento\": \"{{id_evento}}\",\n  \"cantidad_entradas\": 2,\n  \"precio_base\": 15000,\n  \"usuario\": {\n    \"id_usuario\": \"{{usuario_a}}\",\n    \"rol_usuario\": \"cliente\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('valido = false', () => pm.expect(pm.response.json().valido).to.eql(false));",
+                  "pm.test('Mensaje: expirado', () => pm.expect(pm.response.json().mensaje).to.include('expirado'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "3.7 No cumple mínimo de entradas (400)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/promociones/validar/{{codigo_grupo}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "promociones",
+                "validar",
+                "{{codigo_grupo}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id_evento\": \"{{id_evento}}\",\n  \"cantidad_entradas\": 2,\n  \"precio_base\": 15000,\n  \"usuario\": {\n    \"id_usuario\": \"{{usuario_a}}\",\n    \"rol_usuario\": \"cliente\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('valido = false', () => pm.expect(pm.response.json().valido).to.eql(false));",
+                  "pm.test('Mensaje: mínima de 4', () => pm.expect(pm.response.json().mensaje).to.include('mínima de 4'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "3.8 Cumple mínimo de entradas (200)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/promociones/validar/{{codigo_grupo}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "promociones",
+                "validar",
+                "{{codigo_grupo}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id_evento\": \"{{id_evento}}\",\n  \"cantidad_entradas\": 4,\n  \"precio_base\": 15000,\n  \"usuario\": {\n    \"id_usuario\": \"{{usuario_a}}\",\n    \"rol_usuario\": \"cliente\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('valido = true con 30%', () => { const r = pm.response.json(); pm.expect(r.valido).to.eql(true); pm.expect(r.porcentaje_descuento).to.eql(30); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "4. Entradas - Evaluar promoción vigente",
+      "item": [
+        {
+          "name": "4.1 Evento con promoción vigente (200, descuento > 0)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/promociones/evaluar",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "promociones",
+                "evaluar"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id_evento\": \"{{id_evento}}\",\n  \"id_usuario\": \"{{usuario_a}}\",\n  \"cantidad_entradas\": 2\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Responde en menos de 2000 ms', () => pm.expect(pm.response.responseTime).to.be.below(2000));",
+                  "const r = pm.response.json();",
+                  "pm.test('Descuento 20% de la promoción vigente', () => pm.expect(r.porcentaje_descuento).to.eql(20));",
+                  "pm.test('Retorna id_promocion', () => pm.expect(r.id_promocion).to.eql(pm.collectionVariables.get('id_vigente')));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "4.2 Evento sin promoción (200, descuento 0)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/promociones/evaluar",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "promociones",
+                "evaluar"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id_evento\": \"{{id_evento_sin_promo}}\",\n  \"id_usuario\": \"{{usuario_a}}\",\n  \"cantidad_entradas\": 2\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('porcentaje_descuento = 0', () => pm.expect(pm.response.json().porcentaje_descuento).to.eql(0));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "4.3 Datos incompletos (400)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/promociones/evaluar",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "promociones",
+                "evaluar"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id_evento\": \"{{id_evento}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('Mensaje: incompletos', () => pm.expect(pm.response.json().mensaje).to.include('incompletos'));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "5. Pagos - Consumo de cupón (webhook)",
+      "item": [
+        {
+          "name": "5.1 Evento pago completado (200)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/test/webhook/pago-completado",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "test",
+                "webhook",
+                "pago-completado"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id_pago\": \"pay-{{run}}-1\",\n  \"id_usuario\": \"{{usuario_a}}\",\n  \"id_evento\": \"{{id_evento}}\",\n  \"nombre_codigo\": \"{{codigo_vigente}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.sendRequest(pm.variables.get('baseUrl') + '/api/v1/promociones/evento/' + pm.collectionVariables.get('id_evento'), (err, res) => {",
+                  "  const p = res.json().find(x => x._id === pm.collectionVariables.get('id_vigente'));",
+                  "  pm.test('Stock baja de 100 a 99', () => pm.expect(p.cantidad_codigos).to.eql(99));",
+                  "  pm.test('usos_actuales sube a 1', () => pm.expect(p.usos_actuales).to.eql(1));",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "5.2 Mismo usuario supera max_usos_por_cuenta (400)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/promociones/validar/{{codigo_vigente}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "promociones",
+                "validar",
+                "{{codigo_vigente}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id_evento\": \"{{id_evento}}\",\n  \"cantidad_entradas\": 2,\n  \"precio_base\": 15000,\n  \"usuario\": {\n    \"id_usuario\": \"{{usuario_a}}\",\n    \"rol_usuario\": \"cliente\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('valido = false', () => pm.expect(pm.response.json().valido).to.eql(false));",
+                  "pm.test('Mensaje: límite de usos', () => pm.expect(pm.response.json().mensaje).to.include('límite de usos'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "5.3 Entradas: usuario que ya usó el cupón no recibe descuento (200, 0)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/promociones/evaluar",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "promociones",
+                "evaluar"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id_evento\": \"{{id_evento}}\",\n  \"id_usuario\": \"{{usuario_a}}\",\n  \"cantidad_entradas\": 2\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('porcentaje_descuento = 0', () => pm.expect(pm.response.json().porcentaje_descuento).to.eql(0));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "5.4 Otro usuario sí puede usar el código (200)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/promociones/validar/{{codigo_vigente}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "promociones",
+                "validar",
+                "{{codigo_vigente}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id_evento\": \"{{id_evento}}\",\n  \"cantidad_entradas\": 2,\n  \"precio_base\": 15000,\n  \"usuario\": {\n    \"id_usuario\": \"{{usuario_b}}\",\n    \"rol_usuario\": \"cliente\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('valido = true', () => pm.expect(pm.response.json().valido).to.eql(true));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "5.5 Evento de pago duplicado no descuenta stock dos veces (idempotencia)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/test/webhook/pago-completado",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "test",
+                "webhook",
+                "pago-completado"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id_pago\": \"pay-{{run}}-1\",\n  \"id_usuario\": \"{{usuario_a}}\",\n  \"id_evento\": \"{{id_evento}}\",\n  \"nombre_codigo\": \"{{codigo_vigente}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.sendRequest(pm.variables.get('baseUrl') + '/api/v1/promociones/evento/' + pm.collectionVariables.get('id_evento'), (err, res) => {",
+                  "  const p = res.json().find(x => x._id === pm.collectionVariables.get('id_vigente'));",
+                  "  pm.test('Stock se mantiene en 99', () => pm.expect(p.cantidad_codigos).to.eql(99));",
+                  "  pm.test('usos_actuales se mantiene en 1', () => pm.expect(p.usos_actuales).to.eql(1));",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "6. Modificar / desactivar promoción",
+      "item": [
+        {
+          "name": "6.1 Cambiar porcentaje de cupón ya usado (400)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/promociones/{{id_vigente}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "promociones",
+                "{{id_vigente}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"porcentaje_descuento\": 90\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('Mensaje: ya fue utilizado', () => pm.expect(pm.response.json().mensaje).to.include('ya fue utilizado'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "6.2 Extender fecha y stock de cupón usado (200)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/promociones/{{id_vigente}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "promociones",
+                "{{id_vigente}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fecha_fin\": \"{{fecha_dos_meses}}\",\n  \"cantidad_codigos\": 150\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const p = pm.response.json();",
+                  "pm.test('Stock actualizado a 150', () => pm.expect(p.cantidad_codigos).to.eql(150));",
+                  "pm.test('fecha_fin actualizada', () => pm.expect(new Date(p.fecha_fin).toISOString()).to.eql(pm.collectionVariables.get('fecha_dos_meses')));",
+                  "pm.test('Porcentaje no cambió', () => pm.expect(p.porcentaje_descuento).to.eql(20));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "6.3 Desactivar promoción (200)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/promociones/{{id_vigente}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "promociones",
+                "{{id_vigente}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"activo\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('activo = false', () => pm.expect(pm.response.json().activo).to.eql(false));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "6.4 Validar código desactivado (400)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/promociones/validar/{{codigo_vigente}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "promociones",
+                "validar",
+                "{{codigo_vigente}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id_evento\": \"{{id_evento}}\",\n  \"cantidad_entradas\": 2,\n  \"precio_base\": 15000,\n  \"usuario\": {\n    \"id_usuario\": \"{{usuario_c}}\",\n    \"rol_usuario\": \"cliente\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('valido = false', () => pm.expect(pm.response.json().valido).to.eql(false));",
+                  "pm.test('Mensaje: desactivado', () => pm.expect(pm.response.json().mensaje).to.include('desactivado'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "6.5 Dejar promoción grupal sin stock (200)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/promociones/{{id_grupo}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "promociones",
+                "{{id_grupo}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cantidad_codigos\": 0\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('cantidad_codigos = 0', () => pm.expect(pm.response.json().cantidad_codigos).to.eql(0));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "6.6 Validar código sin stock (400)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/promociones/validar/{{codigo_grupo}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "promociones",
+                "validar",
+                "{{codigo_grupo}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id_evento\": \"{{id_evento}}\",\n  \"cantidad_entradas\": 4,\n  \"precio_base\": 15000,\n  \"usuario\": {\n    \"id_usuario\": \"{{usuario_c}}\",\n    \"rol_usuario\": \"cliente\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('valido = false', () => pm.expect(pm.response.json().valido).to.eql(false));",
+                  "pm.test('Mensaje: No quedan cupones', () => pm.expect(pm.response.json().mensaje).to.include('No quedan cupones'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "6.7 Modificar promoción inexistente (404)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/promociones/000000000000000000000000",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "promociones",
+                "000000000000000000000000"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"activo\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 404', () => pm.response.to.have.status(404));",
+                  "pm.test('Mensaje: no encontrada', () => pm.expect(pm.response.json().mensaje).to.include('no encontrada'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "6.8 Modificar con ID mal formado (404)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/promociones/id-invalido",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "promociones",
+                "id-invalido"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"activo\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 404', () => pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
