@@ -1,0 +1,17 @@
+services:
+  promociones-service:
+    build: .
+    container_name: promociones-service
+    ports:
+      - "3009:3000"
+    environment:
+      PORT: 3000
+      MONGO_URI: ${MONGO_URI}
+      BROKER_URL: amqp://ticketu:ticketu_dev@ticketu-rabbitmq:5672/ticketu
+      EVENT_EXCHANGE: ticketu.events
+    networks:
+      - plataforma-eventos-net
+
+networks:
+  plataforma-eventos-net:
+    external: true
