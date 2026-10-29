@@ -19,7 +19,9 @@ app.use(express.json());
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 // Rutas de la API
-app.use('/', promocionRoutes);
+app.use('/api/promociones', promocionRoutes);
+app.use('/api/v1/promociones', promocionRoutes);
+app.use('/promociones', promocionRoutes);
 
 // Endpoint simulador para pruebas del evento asíncrono de Pagos
 app.post('/test/webhook/pago-completado', async (req, res) => {
