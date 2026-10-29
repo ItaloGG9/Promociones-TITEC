@@ -44,6 +44,8 @@ exports.crearPromocion = async (req, res) => {
     await nuevaPromocion.save();
     return res.status(201).json(nuevaPromocion);
   } catch (error) {
+    if (error.name === 'ValidationError') return res.status(400).json({ mensaje: 'Datos inválidos', detalle: Object.values(error.errors).map(e => e.message) });
+    if (error.code === 11000) return res.status(400).json({ mensaje: 'El código promocional ya existe.' });
     return res.status(500).json({ mensaje: 'Error al crear la promoción.', error: error.message });
   }
 };

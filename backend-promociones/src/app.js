@@ -32,6 +32,7 @@ mongoose.connect(MONGO_URI)
   .then(() => {
     console.log('[MongoDB] Conexión establecida');
     app.listen(PORT, () => {
+      require('./events/broker').iniciarConsumidor(procesarPagoCompletado);
       console.log(`[Servicio Promociones] Corriendo en el puerto ${PORT}`);
       console.log(`[Swagger] Documentación disponible en http://localhost:${PORT}/api-docs`);
     });
