@@ -2,6 +2,13 @@ const express = require('express');
 const router = express.Router();
 const controller = require('../controllers/promocionController');
 
+router.post('/api/promociones', controller.crearPromocion);
+router.get('/api/promociones/evento/:id_evento', controller.listarPorEvento);
+router.patch('/api/promociones/:id_promocion', controller.modificarPromocion);
+router.post('/api/promociones/validar/:nombre_codigo', controller.validarCodigo);
+router.post('/api/promociones/evaluar', controller.evaluarPromocionVigente);
+
+
 /**
  * @openapi
  * /api/v1/promociones:
