@@ -2,10 +2,33 @@
 
 Archivos:
 
-- `promociones_sistema.postman_collection.json`: colección (32 requests, 81 aserciones)
-- `promociones_local.postman_environment.json`: entorno con `baseUrl = http://localhost:3005`
+- `promociones_sistema.postman_collection.json`: colección (36 requests, 90 aserciones)
+- `promociones_local.postman_environment.json`: entorno con `gatewayUrl = http://localhost:8080` y `baseUrl = http://localhost:3009`
 
-## Cómo ejecutar
+## Pruebas a través del API Gateway (puerto 8080)
+
+1. Crear la red (solo la primera vez):
+
+   ```bash
+   docker network create plataforma-eventos-net
+   ```
+
+2. Levantar el Gateway (`cd api-gateway && docker compose up -d`) y el servicio
+   (`cd backend-promociones && docker compose up -d`, con `MONGO_URI` definido en un `.env`).
+3. En Postman: importar la colección y el entorno, y seleccionar el entorno **Promociones Local**.
+4. Ejecutar la carpeta **0. Gateway (puerto 8080)**: clic derecho → **Run folder**.
+
+| ID | Petición | Esperado |
+| :-- | :-- | :-- |
+| 0.1 | `POST http://localhost:8080/api/promociones` | 201, promoción creada |
+| 0.2 | `POST http://localhost:8080/api/promociones` (código `FIESTA2026`) | 201 la primera vez; en las siguientes, 400 "ya existe" |
+| 0.3 | `POST http://localhost:8080/api/promociones/validar/FIESTA2026` | 200, `valido: true`, 20% |
+| 0.4 | `GET http://localhost:8080/api/promociones/evento/evt-123` | 200, incluye `FIESTA2026` |
+
+Para la evidencia: sacar captura de cada request mostrando la URL con `:8080` y el código 201/200,
+y del resumen del Runner.
+
+## Cómo ejecutar (servicio directo)
 
 1. Levantar MongoDB (`docker compose up -d` en `bd-promociones/`) y el backend (`npm start` en `backend-promociones/`).
 2. En Postman: **Import** → seleccionar los dos archivos JSON.

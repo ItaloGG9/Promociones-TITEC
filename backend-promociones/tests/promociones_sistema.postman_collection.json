@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "promociones-titec-pruebas-sistema",
     "name": "Promociones TITEC - Pruebas del Sistema",
-    "description": "Pruebas del sistema del microservicio de Promociones.\n\nRequisitos: backend corriendo (`npm start` en backend-promociones) con MongoDB.\nEjecutar la colección completa en orden con el Collection Runner (o `newman run`). Cada ejecución genera códigos y eventos únicos, así que no depende del seed ni hay que limpiar la BD.\n\nCambiar la variable `baseUrl` si el servicio no corre en http://localhost:3005.",
+    "description": "Pruebas del sistema del microservicio de Promociones.\n\nRequisitos: backend corriendo (`npm start` en backend-promociones) con MongoDB.\nEjecutar la colección completa en orden con el Collection Runner (o `newman run`). Cada ejecución genera códigos y eventos únicos, así que no depende del seed ni hay que limpiar la BD.\n\nVariables: `gatewayUrl` (API Gateway, carpeta 0) y `baseUrl` (servicio directo, carpetas 1 a 6). Con `npm start` el servicio corre en http://localhost:3005; con docker compose, en http://localhost:3009.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "event": [
@@ -11,7 +11,7 @@
       "script": {
         "type": "text/javascript",
         "exec": [
-          "if (!pm.collectionVariables.get('run') || pm.info.requestName.startsWith('1.1')) {",
+          "if (!pm.collectionVariables.get('run') || /^(0|1)\\.1 /.test(pm.info.requestName)) {",
           "  const run = Date.now().toString(36).toUpperCase();",
           "  const DAY = 24 * 60 * 60 * 1000;",
           "  const now = Date.now();",
@@ -39,11 +39,189 @@
   ],
   "variable": [
     {
+      "key": "gatewayUrl",
+      "value": "http://localhost:8080"
+    },
+    {
       "key": "baseUrl",
       "value": "http://localhost:3005"
     }
   ],
   "item": [
+    {
+      "name": "0. Gateway (puerto 8080)",
+      "description": "Demuestra que las peticiones pasan por el API Gateway hacia promociones-service.",
+      "item": [
+        {
+          "name": "0.1 Gateway - Crear promoción (201)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{gatewayUrl}}/api/promociones",
+              "host": [
+                "{{gatewayUrl}}"
+              ],
+              "path": [
+                "api",
+                "promociones"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre_codigo\": \"GW{{run}}\",\n  \"id_evento\": \"evt-123\",\n  \"porcentaje_descuento\": 15,\n  \"fecha_inicio\": \"{{fecha_ayer}}\",\n  \"fecha_fin\": \"{{fecha_mes}}\",\n  \"cantidad_codigos\": 50\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                  "pm.test('Responde en menos de 2000 ms', () => pm.expect(pm.response.responseTime).to.be.below(2000));",
+                  "pm.test('Promoción creada con _id', () => pm.expect(pm.response.json()._id).to.be.a('string'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "0.2 Gateway - Crear promoción FIESTA2026 (201)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{gatewayUrl}}/api/promociones",
+              "host": [
+                "{{gatewayUrl}}"
+              ],
+              "path": [
+                "api",
+                "promociones"
+              ]
+            },
+            "description": "La primera ejecución responde 201. En las siguientes el código ya existe y responde 400 \"ya existe\", lo que también se acepta.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre_codigo\": \"FIESTA2026\",\n  \"id_evento\": \"evt-123\",\n  \"porcentaje_descuento\": 20,\n  \"fecha_inicio\": \"2026-01-01T00:00:00.000Z\",\n  \"fecha_fin\": \"2027-12-31T23:59:59.000Z\",\n  \"cantidad_codigos\": 100,\n  \"max_usos_por_cuenta\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201 (o 400 si FIESTA2026 ya existía)', () => {",
+                  "  if (pm.response.code === 400) pm.expect(pm.response.json().mensaje).to.include('ya existe');",
+                  "  else pm.response.to.have.status(201);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "0.3 Gateway - Validar cupón FIESTA2026 (200)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{gatewayUrl}}/api/promociones/validar/FIESTA2026",
+              "host": [
+                "{{gatewayUrl}}"
+              ],
+              "path": [
+                "api",
+                "promociones",
+                "validar",
+                "FIESTA2026"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id_evento\": \"evt-123\",\n  \"cantidad_entradas\": 2,\n  \"precio_base\": 15000,\n  \"usuario\": {\n    \"id_usuario\": \"usr-gw-{{run}}\",\n    \"rol_usuario\": \"cliente\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Responde en menos de 2000 ms', () => pm.expect(pm.response.responseTime).to.be.below(2000));",
+                  "const r = pm.response.json();",
+                  "pm.test('valido = true con 20% de descuento', () => { pm.expect(r.valido).to.eql(true); pm.expect(r.porcentaje_descuento).to.eql(20); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "0.4 Gateway - Listar promociones del evento (200)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{gatewayUrl}}/api/promociones/evento/evt-123",
+              "host": [
+                "{{gatewayUrl}}"
+              ],
+              "path": [
+                "api",
+                "promociones",
+                "evento",
+                "evt-123"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Incluye FIESTA2026', () => pm.expect(pm.response.json().map(p => p.nombre_codigo)).to.include('FIESTA2026'));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
     {
       "name": "1. HU-01 Crear promoción",
       "item": [
