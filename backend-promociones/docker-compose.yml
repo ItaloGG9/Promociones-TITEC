@@ -6,9 +6,10 @@ services:
       - "3009:3000"
     environment:
       PORT: 3000
-      MONGO_URI: ${MONGO_URI}
-      BROKER_URL: amqp://ticketu:ticketu_dev@ticketu-rabbitmq:5672/ticketu
-      EVENT_EXCHANGE: ticketu.events
+      MONGO_URI: ${MONGO_URI:-mongodb://mongo-promociones:27017/promociones_db}
+      BROKER_URL: ${BROKER_URL:-amqp://ticketu:ticketu_dev@ticketu-rabbitmq:5672/ticketu}
+      EVENT_EXCHANGE: ${EVENT_EXCHANGE:-ticketu.events}
+    restart: unless-stopped
     networks:
       - plataforma-eventos-net
 

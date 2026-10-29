@@ -4,6 +4,8 @@ const controller = require('../controllers/promocionController');
 
 router.post('/api/promociones', controller.crearPromocion);
 router.get('/api/promociones/evento/:id_evento', controller.listarPorEvento);
+// Alias usado por FrontendTitec (módulo Catálogo).
+router.get('/api/promociones/eventos/:id_evento/promociones', controller.listarPorEvento);
 router.patch('/api/promociones/:id_promocion', controller.modificarPromocion);
 router.post('/api/promociones/validar/:nombre_codigo', controller.validarCodigo);
 router.post('/api/promociones/evaluar', controller.evaluarPromocionVigente);
@@ -113,6 +115,8 @@ router.patch('/api/v1/promociones/:id_promocion', controller.modificarPromocion)
  *       404: { description: Código no encontrado }
  */
 router.post('/promociones/validar/:nombre_codigo', controller.validarCodigo);
+// Alias público para Checkout cuando consume Promociones a través del Gateway.
+router.post('/api/promociones/validar/:nombre_codigo', controller.validarCodigo);
 
 /**
  * @openapi
@@ -136,5 +140,7 @@ router.post('/promociones/validar/:nombre_codigo', controller.validarCodigo);
  *       400: { description: Datos incompletos }
  */
 router.post('/api/v1/promociones/evaluar', controller.evaluarPromocionVigente);
+// Alias público para el microservicio Entradas detrás del Gateway.
+router.post('/api/promociones/evaluar', controller.evaluarPromocionVigente);
 
 module.exports = router;

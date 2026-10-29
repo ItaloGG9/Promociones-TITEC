@@ -1,6 +1,5 @@
 const Promocion = require('../models/Promocion');
 const RegistroUso = require('../models/RegistroUso');
-const { obtenerDetalleEvento } = require('../clients/panelClient');
 const mongoose = require('mongoose');
 
 // H1: Crear código de descuento (asociado a evento pagado)
@@ -17,13 +16,10 @@ exports.crearPromocion = async (req, res) => {
       max_usos_por_cuenta 
     } = req.body;
 
-    // Validación contra el servicio de Panel Organizador
-    const evento = await obtenerDetalleEvento(id_evento);
-    if (evento && evento.tipo_entrada === 'gratis') {
-      return res.status(400).json({ 
-        mensaje: 'No se pueden crear códigos promocionales para eventos gratuitos.' 
-      });
-    }
+    // El microservicio Panel Organizador no está disponible en este entorno.
+    // id_evento se conserva como referencia externa; la creación no depende
+    // de una llamada remota inexistente. La elegibilidad del evento debe
+    // verificarse al integrar el servicio real del organizador.
 
     const promocionExistente = await Promocion.findOne({ nombre_codigo: nombre_codigo.toUpperCase() });
     if (promocionExistente) {

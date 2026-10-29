@@ -1,3 +1,5 @@
+// Integración opcional: no se invoca desde el flujo principal mientras Panel Organizador no esté disponible.
+// Cuando el equipo entregue el endpoint real, configurar PANEL_SERVICE_URL y reactivar la validación en crearPromocion.
 const axios = require('axios');
 
 const PANEL_API_URL = process.env.PANEL_SERVICE_URL || 'http://panel-service:3000/api/v1';

@@ -18,6 +18,16 @@ app.use(express.json());
 // Documentación Swagger montada (Revisión rúbrica BE1 y BE3)
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
+// Estado del microservicio: considera saludable el servicio si MongoDB está conectado.
+app.get('/health', (req, res) => {
+  const databaseReady = mongoose.connection.readyState === 1;
+  return res.status(databaseReady ? 200 : 503).json({
+    servicio: 'promociones',
+    estado: databaseReady ? 'ok' : 'degradado',
+    base_datos: databaseReady ? 'conectada' : 'no_conectada'
+  });
+});
+
 // Rutas de la API
 app.use('/', promocionRoutes);
 
