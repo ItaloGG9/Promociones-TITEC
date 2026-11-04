@@ -18,3 +18,10 @@
   "descuentoAplicado": 5000,
   "fechaPago": "2026-11-04T10:30:00.000Z"
 }
+
+## Respuestas y Códigos de Error
+* **Procesamiento Exitoso**: Se crea un documento en registros_uso y se incrementa promocion.usosActuales. El mensaje se confirma con channel.ack(msg).
+
+* **Error de Validación / Mensaje Mal Formado**: Si falta codigoPromocion o pagoId, se descarta el mensaje sin reintentar con channel.nack(msg, false, false).
+
+* **Error Temporal Base de Datos**: Se rechaza el mensaje para reencolarlo con channel.nack(msg, false, true).
