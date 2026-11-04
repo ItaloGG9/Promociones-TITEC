@@ -44,8 +44,7 @@ export default function Home() {
   const [promociones, setPromociones] = useState(MOCK_PROMOCIONES);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [tipoDescuento, setTipoDescuento] = useState("Porcentaje (%)");
-  
-  const [promoEditando, setPromoEditando] = useState<any>(null);
+  const [promoEditando, setPromoEditando] = useState<(typeof MOCK_PROMOCIONES)[number] | null>(null);
 
   const toggleEstadoPromocion = (id: number) => {
     setPromociones(promociones.map(promo => {
@@ -78,11 +77,9 @@ export default function Home() {
     const descripcion = formData.get("descripcion") as string;
     const fechaInput = formData.get("fechaLimite") as string;
 
-    // Formatear descuento
-    let descuentoFormateado = tipoDescuento === "2x1" ? "2x1" : 
+    const descuentoFormateado = tipoDescuento === "2x1" ? "2x1" : 
                               tipoDescuento === "Porcentaje (%)" ? `${valor}%` : `$${valor}`;
 
-    // Formatear fecha (De YYYY-MM-DD a DD Mes YYYY)
     const [year, month, day] = fechaInput.split("-");
     const meses = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
     const fechaFormateada = `${day} ${meses[parseInt(month) - 1]} ${year}`;
@@ -118,7 +115,6 @@ export default function Home() {
     const descripcion = promoEditando.descripcion.replace(/\[.*?\]\s*-\s*/, "");
     const valor = promoEditando.descuento.replace(/[^0-9]/g, "");
     
-    // Des-formatear fecha para el input type="date"
     let fechaLimite = "";
     if (promoEditando.validoHasta) {
       const partes = promoEditando.validoHasta.split(" ");
@@ -133,6 +129,16 @@ export default function Home() {
   };
 
   const defaults = getValoresPorDefecto();
+
+  // NUEVO: Calculamos la fecha de hoy en formato YYYY-MM-DD para bloquear fechas pasadas
+  const getFechaMinima = () => {
+    const hoy = new Date();
+    const yyyy = hoy.getFullYear();
+    const mm = String(hoy.getMonth() + 1).padStart(2, '0');
+    const dd = String(hoy.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+  };
+  const fechaMinima = getFechaMinima();
 
   return (
     <main className="min-h-screen p-6 md:p-10 max-w-[1200px] mx-auto relative">
@@ -222,7 +228,6 @@ export default function Home() {
                 </select>
               </div>
 
-              {/* NUEVA FILA: Código y Fecha Límite */}
               <div className="flex gap-4">
                 <div className="flex-1">
                   <label className="block text-sm font-semibold text-brand-navy mb-1.5">Código</label>
@@ -241,6 +246,7 @@ export default function Home() {
                     type="date" 
                     name="fechaLimite"
                     defaultValue={defaults.fechaLimite}
+                    min={fechaMinima} // <-- NUEVO: Aquí bloqueamos las fechas pasadas
                     required
                     className="w-full h-10 px-3 rounded-lg border border-brand-border focus:outline-none focus:border-brand-navy focus:ring-1 focus:ring-brand-navy transition-all text-gray-700"
                   />
