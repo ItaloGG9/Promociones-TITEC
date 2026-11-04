@@ -4,7 +4,7 @@ services:
     container_name: promociones-service
     ports:
       - "3009:3000"
-      env_file:
+    env_file:
       - .env
     environment:
       PORT: 3000
