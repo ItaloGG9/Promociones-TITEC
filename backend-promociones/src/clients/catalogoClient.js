@@ -1,6 +1,7 @@
 const axios = require('axios');
 
-const CATALOGO_API_URL = process.env.CATALOGO_SERVICE_URL || 'http://catalogo-service:3000/api/v1';
+
+const CATALOGO_API_URL = process.env.CATALOGO_SERVICE_URL || 'http://ticketu-catalogo:4001/api/v1';
 
 async function consultarPrecioEvento(id_evento) {
   try {
