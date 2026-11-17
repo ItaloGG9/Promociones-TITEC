@@ -1,31 +1,40 @@
+
 const axios = require('axios');
 
-const AUTH_SERVICE_URL = process.env.AUTH_SERVICE_URL || 'http://localhost:3001/api/v1/auth';
-
-/**
- * Cliente de integración con el Microservicio de Auth.
- * Dependencia: usuario (id, rol) según tabla de dependencias TITEC 2026-2.
- */
+// Cliente para comunicarse con el microservicio Auth
 class AuthClient {
-  /**
-   * Valida un token de sesión o consulta la identidad y rol de un usuario.
-   * @param {string} token - Token de autenticación del usuario.
-   * @returns {Promise<{ id_usuario: string, rol_usuario: string }>}
-   */
-  static async validarUsuarioYRol(token) {
-    try {
-      const response = await axios.get(`${AUTH_SERVICE_URL}/verificar`, {
-        headers: {
-          Authorization: `Bearer ${token}`
-        },
-        timeout: 2000
-      });
-      return response.data;
-    } catch (error) {
-      console.error('[AuthClient] Error al consultar servicio de Auth:', error.message);
-      // Retorno controlado para resiliencia en caso de servicio caído o mock
-      return null;
+
+  // Consulta a Auth para validar la sesión y obtener el usuario
+  static async validarUsuarioYRol(cookie) {
+
+    const url = process.env.AUTH_SERVICE_URL;
+    const clave = process.env.INTERNAL_API_KEY;
+
+    // Comprobar que estén configurados los datos de conexión
+    if (!url || !clave) {
+      throw new Error('Falta configurar la conexión con Auth');
     }
+
+    // Enviar la cookie de sesión al servicio Auth
+    const respuesta = await axios.get(`${url}/internal/validar-sesion`, {
+      headers: {
+        Cookie: cookie,
+        'x-api-key': clave
+      },
+      timeout: Number(process.env.HTTP_TIMEOUT_MS) || 5000
+    });
+
+    // Comprobar que Auth devolvió un usuario válido
+    if (!respuesta.data ||
+        respuesta.data.valido !== true ||
+        !respuesta.data.usuario ||
+        !respuesta.data.usuario.id_usuario ||
+        !respuesta.data.usuario.rol) {
+      throw new Error('Respuesta inválida del servicio Auth');
+    }
+
+    // Entregar los datos del usuario autenticado
+    return respuesta.data.usuario;
   }
 }
 

@@ -1,14 +1,22 @@
 const express = require('express');
 const router = express.Router();
 const controller = require('../controllers/promocionController');
+const { validarSesion, permitirAdministracion } = require('../middlewares/authMiddleware');
 
-router.post('/api/promociones', controller.crearPromocion);
+
+router.post('/api/promociones', validarSesion, permitirAdministracion, controller.crearPromocion);
+
 router.get('/api/promociones/evento/:id_evento', controller.listarPorEvento);
-// Alias usado por FrontendTitec (módulo Catálogo).
+
+// Alias usado por FrontendTitec
 router.get('/api/promociones/eventos/:id_evento/promociones', controller.listarPorEvento);
-router.patch('/api/promociones/:id_promocion', controller.modificarPromocion);
+
+router.patch('/api/promociones/:id_promocion', validarSesion, permitirAdministracion, controller.modificarPromocion);
+
 router.post('/api/promociones/validar/:nombre_codigo', controller.validarCodigo);
+
 router.post('/api/promociones/evaluar', controller.evaluarPromocionVigente);
+
 
 
 /**
@@ -37,7 +45,7 @@ router.post('/api/promociones/evaluar', controller.evaluarPromocionVigente);
  *       201: { description: Promoción creada exitosamente }
  *       400: { description: Error de validación o evento gratuito }
  */
-router.post('/api/v1/promociones', controller.crearPromocion);
+router.post('/api/v1/promociones', validarSesion, permitirAdministracion, controller.crearPromocion);
 
 /**
  * @openapi
@@ -80,11 +88,12 @@ router.get('/api/v1/promociones/evento/:id_evento', controller.listarPorEvento);
  *       200: { description: Promoción actualizada exitosamente }
  *       400: { description: Parámetros inválidos o intento de modificar cupón usado }
  */
-router.patch('/api/v1/promociones/:id_promocion', controller.modificarPromocion);
+router.patch('/api/v1/promociones/:id_promocion', validarSesion, permitirAdministracion, controller.modificarPromocion);
 
 /**
+/**
  * @openapi
- * /promociones/validar/{nombre_codigo}:
+ * /api/promociones/validar/{nombre_codigo}:
  *   post:
  *     summary: Validar código promocional en checkout (Contrato Checkout)
  *     tags: [Integración Checkout/Pagos]

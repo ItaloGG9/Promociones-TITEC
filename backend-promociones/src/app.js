@@ -15,6 +15,23 @@ const MONGO_URI = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/promocione
 app.use(cors());
 app.use(express.json());
 
+
+ // Registrar las solicitudes que recibe Promociones
+app.use((req, res, next) => {
+  if (req.path.startsWith('/api/promociones')) {
+    const fecha = new Date().toISOString();
+    const id = req.get('x-request-id') || 'sin-id';
+
+    // Registrar el resultado cuando termine la solicitud
+    res.on('finish', () => {
+      console.log(`[API] ${fecha} id=${id} metodo=${req.method} ruta=${req.originalUrl} estado=${res.statusCode}`);
+    });
+  }
+
+  next();
+});
+
+
 // Documentación Swagger montada (Revisión rúbrica BE1 y BE3)
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
