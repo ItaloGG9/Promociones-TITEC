@@ -16,6 +16,46 @@ El backend utiliza Node.js, Express y MongoDB. Se integra con Auth para la auten
 
 ## 3. Configuración
 
+
+### Configuración de credenciales
+
+El archivo `backend-promociones/.env.example` contiene las variables
+necesarias para ejecutar el backend, pero no incluye las credenciales
+privadas de los servicios compartidos.
+
+Después de copiar `.env.example` como `.env`, es necesario configurar:
+
+- `BROKER_URL`: reemplazar `USUARIO` y `CONTRASENA` por las credenciales
+  del RabbitMQ disponible en workstation.
+- `AUTH_SERVICE_URL`: indicar la dirección interna del servicio Auth.
+- `INTERNAL_API_KEY`: utilizar la clave compartida proporcionada por Auth.
+- `API_GATEWAY_PUBLIC_URL`: indicar la dirección pública del Gateway.
+
+El backend, MongoDB, RabbitMQ y Auth deben poder comunicarse mediante
+la red Docker acordada para workstation.
+
+Las credenciales reales deben mantenerse solamente en el archivo `.env`
+local o en la configuración privada del entorno.
+
+No subir archivos `.env` ni claves privadas a GitHub.
+
+### Dependencias externas
+
+El `docker-compose.yml` principal inicia solamente:
+
+- MongoDB de Promociones.
+- Backend de Promociones.
+- Frontend de Promociones.
+
+El API Gateway, RabbitMQ y Auth deben estar disponibles previamente,
+porque son servicios compartidos de la plataforma.
+
+Si Auth todavía no está disponible, las rutas públicas pueden funcionar,
+pero no se podrá completar el flujo de administración con una sesión real.
+
+
+
+
 Dentro de `backend-promociones`, copiar el archivo `.env.example` como `.env`.
 
 En Windows:
