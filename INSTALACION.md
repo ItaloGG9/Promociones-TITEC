@@ -171,11 +171,23 @@ Roles permitidos para administrar promociones:
 - `organizador`
 - `staff`
 
-Una solicitud sin sesión debe devolver HTTP 401. Una solicitud de un usuario autenticado sin permisos debe devolver HTTP 403.
+El backend consulta el endpoint `GET /internal/validar-sesion` de Auth, enviando la cookie de sesión y la clave interna `x-api-key`.
 
-El backend consulta el endpoint interno `GET /internal/validar-sesion` del módulo Auth.
+### Pruebas locales realizadas
 
-**Pendiente de completar:** usuarios de prueba proporcionados por Auth, clave compartida y verificación del inicio de sesión real en workstation.
+Se levantó el servicio Auth real junto con PostgreSQL y Keycloak. También se prepararon nueve cuentas de prueba y se comprobó su inicio de sesión.
+
+Se verificaron los siguientes casos:
+
+- Promociones pudo comunicarse con Auth mediante la red Docker.
+- Una solicitud sin sesión respondió HTTP 401.
+- Un organizador inició sesión correctamente y Auth devolvió el rol `organizador`.
+- Una solicitud de creación con sesión de organizador llegó al controlador y respondió HTTP 400 debido a que faltaban datos obligatorios.
+- Un comprador autenticado intentó crear una promoción y recibió HTTP 403 por falta de permisos.
+
+Estas pruebas confirman el funcionamiento local de la autenticación y las restricciones de acceso.
+
+Queda pendiente comprobar el flujo completo desde el navegador, las sesiones vencidas o revocadas y repetir las pruebas con los servicios compartidos de workstation.
 
 ## 7. Integración mediante API Gateway
 
@@ -196,7 +208,7 @@ Para comprobar el recorrido de las solicitudes:
 
 `docker logs --tail 20 promociones-service`
 
-Los registros de ambos servicios contienen un identificador `requestId` que permite relacionar la petición.
+Se comprobó que, cuando el cliente envía el encabezado x-request-id, este aparece en la respuesta del Gateway y en los logs de Promociones. La propagación del identificador generado automáticamente por el Gateway todavía requiere revisión.
 
 ## 8. Integración con RabbitMQ
 
@@ -231,7 +243,7 @@ Este archivo describe cómo verificar:
 - I2: servicios REST mediante API Gateway.
 - I3: consumo de eventos de Pagos mediante RabbitMQ.
 
-Las pruebas locales de I2 e I3 se realizaron correctamente. Deben repetirse utilizando los servicios reales disponibles en workstation.
+Las tres integraciones fueron comprobadas en el entorno local. I1 se probó con Auth real y distintos roles de usuario; I2, mediante solicitudes al API Gateway; e I3, mediante eventos de pago publicados manualmente en RabbitMQ. Queda pendiente verificar el evento emitido directamente por el servicio Pagos y repetir las pruebas en workstation.
 
 
 ## 10. Frontend y flujo principal
@@ -271,7 +283,7 @@ Reemplazar `ID_DEL_EVENTO` por un identificador existente en el ambiente.
 
 Como Next.js incorpora esta variable durante la compilación, es necesario
 reconstruir la imagen cuando se cambia el evento.
-```
+
 
 
 
@@ -288,7 +300,6 @@ Se comprobó el siguiente recorrido:
 
 ### Verificación pendiente en workstation
 
-Se debe completar la conexión con el servicio Auth real, disponer de un usuario de prueba autorizado y comprobar la creación y edición de promociones con una sesión válida.
+La integración local entre Promociones y Auth fue comprobada mediante solicitudes HTTP. Sin embargo, todavía se debe verificar el recorrido completo desde el navegador, incluyendo el inicio de sesión, el envío automático de cookies y la creación o edición de promociones con un usuario autorizado.
 
-Los identificadores de eventos, usuarios y direcciones deberán corresponder al entorno de workstation.
-
+También será necesario utilizar los identificadores de eventos, usuarios y direcciones correspondientes al entorno de workstation.
