@@ -210,6 +210,31 @@ Estas operaciones utilizan las rutas protegidas del backend y requieren una sesi
 
 Las solicitudes sin sesión devuelven HTTP 401 y las solicitudes de usuarios autenticados sin autorización deben devolver HTTP 403.
 
+
+
+### Configuración del evento
+
+El frontend utiliza la variable `NEXT_PUBLIC_EVENTO_ID` para identificar
+el evento cuyas promociones se muestran en el panel.
+
+Por defecto utiliza `evt-demo`, que corresponde al entorno de pruebas local.
+
+Para utilizar otro evento en workstation, configurar la variable antes de
+construir el frontend:
+
+```powershell
+$env:NEXT_PUBLIC_EVENTO_ID = "ID_DEL_EVENTO"
+docker compose up -d --build --no-deps promociones-frontend
+```
+
+Reemplazar `ID_DEL_EVENTO` por un identificador existente en el ambiente.
+
+Como Next.js incorpora esta variable durante la compilación, es necesario
+reconstruir la imagen cuando se cambia el evento.
+```
+
+
+
 ### Verificación local realizada
 
 Se comprobó el siguiente recorrido:
@@ -226,3 +251,4 @@ Se comprobó el siguiente recorrido:
 Se debe completar la conexión con el servicio Auth real, disponer de un usuario de prueba autorizado y comprobar la creación y edición de promociones con una sesión válida.
 
 Los identificadores de eventos, usuarios y direcciones deberán corresponder al entorno de workstation.
+
