@@ -1,0 +1,14 @@
+
+# Dependencias y archivos temporales
+node_modules
+npm-debug.log*
+.git
+
+# Configuración privada
+.env
+.env.*
+!.env.example
+
+# Claves privadas y certificados locales
+*.pem
+*.key
