@@ -34,6 +34,8 @@ type PromocionAPI = {
 
 
 export default function Home() {
+    // Evento que se mostrará en el panel
+  const idEvento = process.env.NEXT_PUBLIC_EVENTO_ID || "evt-demo";
   const [promociones, setPromociones] = useState<Promocion[]>([]);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState("");
@@ -46,7 +48,7 @@ export default function Home() {
   useEffect(() => {
     async function cargarPromociones() {
       try {
-        const respuesta = await fetch("/api/promociones/evento/evt-demo", {
+        const respuesta = await fetch(`/api/promociones/evento/${idEvento}`, {
           cache: "no-store"
         });
 
@@ -96,7 +98,7 @@ export default function Home() {
 
     // Detener la actualización al salir de la página
     return () => clearInterval(intervalo);
-  }, []);
+  }, [idEvento]);
 
   // Activar o desactivar una promoción en el backend
   const toggleEstadoPromocion = async (id: number) => {
@@ -362,7 +364,7 @@ const handleAbrirEdicion = (id: number) => {
             Panel Global
           </p>
           <h2 className="text-xl font-bold text-brand-navy">
-            Promociones del evento evt-demo
+            Promociones del evento {idEvento}
           </h2>
         </div>
         <button 
@@ -438,7 +440,7 @@ const handleAbrirEdicion = (id: number) => {
                   className="w-full h-10 px-3 rounded-lg border border-brand-border focus:outline-none focus:border-brand-navy focus:ring-1 focus:ring-brand-navy transition-all bg-white text-gray-700"
                 >
                   <option value="">-- Elige un evento --</option>
-                  <option value="evt-demo">Evento de prueba (evt-demo)</option>
+                  <option value={idEvento}>Evento ({idEvento})</option>
                 </select>
               </div>
 

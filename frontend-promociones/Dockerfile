@@ -16,6 +16,10 @@ COPY . .
 ARG API_GATEWAY_URL
 ENV API_GATEWAY_URL=${API_GATEWAY_URL}
 
+# Configurar el evento que mostrará el frontend
+ARG NEXT_PUBLIC_EVENTO_ID=evt-demo
+ENV NEXT_PUBLIC_EVENTO_ID=${NEXT_PUBLIC_EVENTO_ID}
+
 # Construir el frontend
 RUN npm run build
 

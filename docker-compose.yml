@@ -49,6 +49,7 @@ services:
       context: ./frontend-promociones
       args:
         API_GATEWAY_URL: ${API_GATEWAY_URL:-http://ticketu-api-gateway:8080}
+        NEXT_PUBLIC_EVENTO_ID: ${NEXT_PUBLIC_EVENTO_ID:-evt-demo}
 
     image: promociones-frontend
     container_name: promociones-frontend
