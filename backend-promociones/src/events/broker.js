@@ -1,5 +1,5 @@
 const amqp = require('amqplib');
-const URL = process.env.BROKER_URL || 'amqp://ticketu:ticketu_dev@localhost:5672/ticketu';
+const URL = process.env.BROKER_URL;
 const EXCHANGE = process.env.EVENT_EXCHANGE || 'ticketu.events';
 const QUEUE = 'promociones.pagos';
 
