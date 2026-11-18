@@ -1,132 +1,339 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Plus, X } from "lucide-react";
 import PromoTicketCard from "./components/PromoTicketCard";
 
-const MOCK_PROMOCIONES = [
-  {
-    id: 1,
-    codigo: "ROCKSINF20",
-    descuento: "20%",
-    descripcion: "[Noche de Rock Sinfónico] - Descuento en preventa para localidades Platea Alta y Galería.",
-    condiciones: "Máximo 2 entradas por transacción.",
-    validoHasta: "15 Oct 2026",
-    isActiva: true,
-    stockTotal: 100,
-    stockUsado: 85,
-  },
-  {
-    id: 2,
-    codigo: "ESTUDIANTE",
-    descuento: "30%",
-    descripcion: "[Festival Indie Valparaíso] - Beneficio exclusivo con acreditación universitaria vigente.",
-    condiciones: "Presentar credencial en acceso.",
-    validoHasta: "20 Oct 2026",
-    isActiva: true,
-    stockTotal: 50,
-    stockUsado: 12,
-  },
-  {
-    id: 3,
-    codigo: "PACKDUO",
-    descuento: "2x1",
-    descripcion: "[Standup Comedy Local] - Lleva 2 entradas al precio de 1 en localidad Cancha General.",
-    condiciones: "Cupos limitados a 100 promociones.",
-    validoHasta: "01 Nov 2026",
-    isActiva: false,
-    stockTotal: 100,
-    stockUsado: 100,
-  }
-];
+
+type Promocion = {
+  id: number;
+  idBackend?: string;
+  idEvento: string;
+  fechaFin: string;
+  codigo: string;
+  descuento: string;
+  descripcion: string;
+  condiciones: string;
+  validoHasta: string;
+  isActiva: boolean;
+  stockTotal: number;
+  stockUsado: number;
+};
+
+type PromocionAPI = {
+  _id: string;
+  nombre_codigo: string;
+  id_evento: string;
+  porcentaje_descuento: number;
+  fecha_fin: string;
+  cantidad_codigos: number;
+  usos_actuales: number;
+  minimo_entradas: number;
+  activo: boolean;
+};
+
 
 export default function Home() {
-  const [promociones, setPromociones] = useState(MOCK_PROMOCIONES);
+  const [promociones, setPromociones] = useState<Promocion[]>([]);
+  const [cargando, setCargando] = useState(true);
+  const [error, setError] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [tipoDescuento, setTipoDescuento] = useState("Porcentaje (%)");
-  const [promoEditando, setPromoEditando] = useState<(typeof MOCK_PROMOCIONES)[number] | null>(null);
+  const [promoEditando, setPromoEditando] = useState<Promocion | null>(null);
+  const [errorFormulario, setErrorFormulario] = useState("");
 
-  const toggleEstadoPromocion = (id: number) => {
-    setPromociones(promociones.map(promo => {
-      if (promo.id === id) {
-        return { ...promo, isActiva: !promo.isActiva };
+  // Cargar las promociones desde el backend
+  useEffect(() => {
+    async function cargarPromociones() {
+      try {
+        const respuesta = await fetch("/api/promociones/evento/evt-demo", {
+          cache: "no-store"
+        });
+
+        if (!respuesta.ok) {
+          throw new Error("No se pudieron cargar las promociones");
+        }
+
+        const datos: PromocionAPI[] = await respuesta.json();
+
+        // Adaptar los datos al formato de las tarjetas
+        const lista = datos.map((promo, index) => {
+          const fecha = new Date(promo.fecha_fin);
+
+          return {
+            id: index + 1,
+            idBackend: promo._id,
+            idEvento: promo.id_evento,
+            fechaFin: promo.fecha_fin,
+            codigo: promo.nombre_codigo,
+            descuento: `${promo.porcentaje_descuento}%`,
+            descripcion: `Promoción del evento ${promo.id_evento}`,
+            condiciones: `Mínimo ${promo.minimo_entradas} entrada(s)`,
+            validoHasta: fecha.toLocaleDateString("es-CL", {
+              timeZone: "UTC"
+            }),
+            isActiva: promo.activo,
+            stockTotal: promo.cantidad_codigos + promo.usos_actuales,
+            stockUsado: promo.usos_actuales
+          };
+        });
+
+        setPromociones(lista);
+        setError("");
+      } catch {
+        setError("No se pudieron cargar las promociones");
+      } finally {
+        setCargando(false);
       }
-      return promo;
-    }));
-  };
+    }
 
-  const handleAbrirEdicion = (id: number) => {
+    
+    // Cargar las promociones al abrir la página
+    cargarPromociones();
+
+    // Actualizar las promociones cada 10 segundos
+    const intervalo = setInterval(cargarPromociones, 10000);
+
+    // Detener la actualización al salir de la página
+    return () => clearInterval(intervalo);
+  }, []);
+
+  // Activar o desactivar una promoción en el backend
+  const toggleEstadoPromocion = async (id: number) => {
     const promo = promociones.find(p => p.id === id);
-    if (promo) {
-      setPromoEditando(promo);
-      if (promo.descuento === "2x1") setTipoDescuento("2x1");
-      else if (promo.descuento.includes("%")) setTipoDescuento("Porcentaje (%)");
-      else setTipoDescuento("Monto Fijo ($)");
-      setIsModalOpen(true);
+
+    if (!promo || !promo.idBackend) {
+      setError("La promoción no tiene un identificador en la base de datos");
+      return;
+    }
+
+    try {
+      // Enviar el cambio al backend mediante el Gateway
+      const respuesta = await fetch(`/api/promociones/${promo.idBackend}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        credentials: "include",
+        body: JSON.stringify({
+          activo: !promo.isActiva
+        })
+      });
+
+      // Comprobar si se pudo modificar la promoción
+      if (!respuesta.ok) {
+        if (respuesta.status === 401) {
+          throw new Error("Debes iniciar sesión para modificar promociones");
+        }
+
+        if (respuesta.status === 403) {
+          throw new Error("No tienes permisos para modificar promociones");
+        }
+
+        throw new Error("No se pudo modificar la promoción");
+      }
+
+      const actualizada = await respuesta.json();
+
+      // Actualizar la tarjeta cuando el backend confirme el cambio
+      setPromociones(actuales =>
+        actuales.map(p =>
+          p.idBackend === promo.idBackend
+            ? { ...p, isActiva: actualizada.activo }
+            : p
+        )
+      );
+
+      setError("");
+
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "Error al modificar la promoción");
     }
   };
 
-  const handleGuardarPromocion = (e: React.FormEvent<HTMLFormElement>) => {
+
+  
+const handleAbrirEdicion = (id: number) => {
+  const promo = promociones.find(p => p.id === id);
+
+  if (promo) {
+    // Limpiar errores anteriores
+    setErrorFormulario("");
+
+    // Guardar la promoción que vamos a editar
+    setPromoEditando(promo);
+    setTipoDescuento("Porcentaje (%)");
+    setIsModalOpen(true);
+  }
+};
+
+
+  
+  // Guardar una promoción en el backend
+  const handleGuardarPromocion = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    
-    const formData = new FormData(e.currentTarget);
-    const codigo = formData.get("codigo") as string;
-    const evento = formData.get("evento") as string;
-    const valor = formData.get("valor") as string;
-    const stock = Number(formData.get("stock"));
-    const descripcion = formData.get("descripcion") as string;
-    const fechaInput = formData.get("fechaLimite") as string;
+    setErrorFormulario("");
 
-    const descuentoFormateado = tipoDescuento === "2x1" ? "2x1" : 
-                              tipoDescuento === "Porcentaje (%)" ? `${valor}%` : `$${valor}`;
+    // Obtener los datos del formulario
+    const datos = new FormData(e.currentTarget);
 
-    const [year, month, day] = fechaInput.split("-");
-    const meses = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
-    const fechaFormateada = `${day} ${meses[parseInt(month) - 1]} ${year}`;
+    const codigo = String(datos.get("codigo") || "").trim().toUpperCase();
+    const evento = String(datos.get("evento") || "");
+    const descuento = Number(datos.get("valor"));
+    const stock = Number(datos.get("stock"));
+    const fechaLimite = String(datos.get("fechaLimite") || "");
 
-    const promoGuardada = {
-      id: promoEditando ? promoEditando.id : Date.now(),
-      codigo: codigo.toUpperCase(),
-      descuento: descuentoFormateado,
-      descripcion: `[${evento}] - ${descripcion}`,
-      condiciones: "Uso único por usuario verificado.",
-      validoHasta: fechaFormateada,
-      isActiva: promoEditando ? promoEditando.isActiva : true,
-      stockTotal: stock,
-      stockUsado: promoEditando ? promoEditando.stockUsado : 0,
+    // Comprobar los valores antes de enviarlos
+    if (!codigo || !evento || !fechaLimite ||
+        !Number.isInteger(descuento) || descuento < 1 || descuento > 100 ||
+        !Number.isInteger(stock) || stock < 1) {
+      setErrorFormulario("Revisa los datos de la promoción");
+      return;
+    }
+
+    // Si estamos editando una promoción existente
+    if (promoEditando) {
+      if (!promoEditando.idBackend) {
+        setErrorFormulario("No se encontró la promoción en MongoDB");
+        return;
+      }
+
+      // No permitir cambiar el evento
+      if (evento !== promoEditando.idEvento) {
+        setErrorFormulario("No se puede cambiar el evento");
+        return;
+      }
+
+      // El stock total no puede ser menor que los usos registrados
+      if (stock < promoEditando.stockUsado) {
+        setErrorFormulario("El stock no puede ser menor que los cupones utilizados");
+        return;
+      }
+
+      // Preparar los datos de la edición
+      const cambios = {
+        nombre_codigo: codigo,
+        porcentaje_descuento: descuento,
+        fecha_fin: `${fechaLimite}T23:59:59.000Z`,
+        cantidad_codigos: stock - promoEditando.stockUsado
+      };
+
+      try {
+        // Enviar la edición al backend
+        const respuesta = await fetch(
+          `/api/promociones/${promoEditando.idBackend}`,
+          {
+            method: "PATCH",
+            headers: {
+              "Content-Type": "application/json"
+            },
+            credentials: "include",
+            body: JSON.stringify(cambios)
+          }
+        );
+
+        const resultado = await respuesta.json();
+
+        // Revisar si la edición fue permitida
+        if (!respuesta.ok) {
+          if (respuesta.status === 401) {
+            throw new Error("Debes iniciar sesión para editar promociones");
+          }
+
+          if (respuesta.status === 403) {
+            throw new Error("No tienes permisos para editar promociones");
+          }
+
+          throw new Error(resultado.mensaje || "No se pudo editar la promoción");
+        }
+
+        // Recargar las promociones después de guardar
+        setIsModalOpen(false);
+        setPromoEditando(null);
+        window.location.reload();
+
+      } catch (error) {
+        setErrorFormulario(
+          error instanceof Error ? error.message : "Error al editar la promoción"
+        );
+      }
+
+      // Terminar aquí para no ejecutar el POST de creación
+      return;
+    }
+
+    // Preparar los datos que necesita el backend
+    const nuevaPromocion = {
+      nombre_codigo: codigo,
+      id_evento: evento,
+      porcentaje_descuento: descuento,
+      fecha_inicio: new Date().toISOString(),
+      fecha_fin: `${fechaLimite}T23:59:59.000Z`,
+      cantidad_codigos: stock,
+      minimo_entradas: 1,
+      max_usos_por_cuenta: 1
     };
 
-    if (promoEditando) {
-      setPromociones(promociones.map(p => p.id === promoEditando.id ? promoGuardada : p));
-    } else {
-      setPromociones([promoGuardada, ...promociones]);
-    }
+    try {
+      // Enviar la promoción mediante el API Gateway
+      const respuesta = await fetch("/api/promociones", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        credentials: "include",
+        body: JSON.stringify(nuevaPromocion)
+      });
 
-    setIsModalOpen(false);
-    setPromoEditando(null);
-    setTipoDescuento("Porcentaje (%)");
-  };
+      const resultado = await respuesta.json();
 
-  const getValoresPorDefecto = () => {
-    if (!promoEditando) return { evento: "", codigo: "", valor: "", stock: "", descripcion: "", fechaLimite: "" };
-    
-    const eventoMatch = promoEditando.descripcion.match(/\[(.*?)\]/);
-    const evento = eventoMatch ? eventoMatch[1] : "";
-    const descripcion = promoEditando.descripcion.replace(/\[.*?\]\s*-\s*/, "");
-    const valor = promoEditando.descuento.replace(/[^0-9]/g, "");
-    
-    let fechaLimite = "";
-    if (promoEditando.validoHasta) {
-      const partes = promoEditando.validoHasta.split(" ");
-      if (partes.length === 3) {
-        const mesIndex = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"].indexOf(partes[1]) + 1;
-        const mesFormateado = mesIndex < 10 ? `0${mesIndex}` : `${mesIndex}`;
-        fechaLimite = `${partes[2]}-${mesFormateado}-${partes[0]}`;
+      // Revisar si el backend rechazó la solicitud
+      if (!respuesta.ok) {
+        if (respuesta.status === 401) {
+          throw new Error("Debes iniciar sesión para crear promociones");
+        }
+
+        if (respuesta.status === 403) {
+          throw new Error("No tienes permisos para crear promociones");
+        }
+
+        throw new Error(resultado.mensaje || "No se pudo crear la promoción");
       }
+
+      // Recargar para consultar nuevamente los datos de MongoDB
+      setIsModalOpen(false);
+      window.location.reload();
+
+    } catch (error) {
+      setErrorFormulario(
+        error instanceof Error ? error.message : "Error al guardar la promoción"
+      );
     }
-    
-    return { evento, codigo: promoEditando.codigo, valor, stock: promoEditando.stockTotal, descripcion, fechaLimite };
   };
+  
+  // Obtener los datos de la promoción que se está editando
+  const getValoresPorDefecto = () => {
+    if (!promoEditando) {
+      return {
+        evento: "",
+        codigo: "",
+        valor: "",
+        stock: "",
+        descripcion: "",
+        fechaLimite: ""
+      };
+    }
+
+    return {
+      evento: promoEditando.idEvento,
+      codigo: promoEditando.codigo,
+      valor: promoEditando.descuento.replace("%", ""),
+      stock: promoEditando.stockTotal,
+      descripcion: promoEditando.descripcion,
+      fechaLimite: promoEditando.fechaFin.slice(0, 10)
+    };
+  };
+
 
   const defaults = getValoresPorDefecto();
 
@@ -155,12 +362,13 @@ export default function Home() {
             Panel Global
           </p>
           <h2 className="text-xl font-bold text-brand-navy">
-            Todas las promociones
+            Promociones del evento evt-demo
           </h2>
         </div>
         <button 
           onClick={() => {
             setPromoEditando(null);
+            setErrorFormulario("");
             setTipoDescuento("Porcentaje (%)");
             setIsModalOpen(true);
           }}
@@ -170,6 +378,14 @@ export default function Home() {
           Nueva Promoción
         </button>
       </div>
+
+      {cargando && (
+        <p>Cargando promociones...</p>
+      )}
+
+      {error && (
+        <p className="text-red-600">{error}</p>
+      )}
 
       <div className="flex flex-col gap-5">
         {promociones.map((promo) => (
@@ -222,9 +438,7 @@ export default function Home() {
                   className="w-full h-10 px-3 rounded-lg border border-brand-border focus:outline-none focus:border-brand-navy focus:ring-1 focus:ring-brand-navy transition-all bg-white text-gray-700"
                 >
                   <option value="">-- Elige un evento --</option>
-                  <option value="Noche de Rock Sinfónico">Noche de Rock Sinfónico</option>
-                  <option value="Festival Indie Valparaíso">Festival Indie Valparaíso</option>
-                  <option value="Standup Comedy Local">Standup Comedy Local</option>
+                  <option value="evt-demo">Evento de prueba (evt-demo)</option>
                 </select>
               </div>
 
@@ -262,8 +476,6 @@ export default function Home() {
                     className="w-full h-10 px-3 rounded-lg border border-brand-border focus:outline-none focus:border-brand-navy focus:ring-1 focus:ring-brand-navy transition-all bg-white text-gray-700"
                   >
                     <option value="Porcentaje (%)">Porcentaje (%)</option>
-                    <option value="Monto Fijo ($)">Monto Fijo ($)</option>
-                    <option value="2x1">2x1</option>
                   </select>
                 </div>
                 
@@ -327,7 +539,11 @@ export default function Home() {
                 />
               </div>
             </div>
-
+            {errorFormulario && (
+              <p className="px-5 pb-2 text-sm text-red-600">
+                {errorFormulario}
+              </p>
+            )}
             <div className="p-5 border-t border-brand-border flex items-center justify-end gap-3 bg-gray-50">
               <button 
                 type="button"

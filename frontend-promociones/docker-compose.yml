@@ -1,0 +1,25 @@
+
+services:
+  promociones-frontend:
+    build:
+      context: .
+      args:
+        API_GATEWAY_URL: http://ticketu-api-gateway:8080
+
+    image: promociones-frontend
+    container_name: promociones-frontend
+
+    ports:
+      - "3011:3000"
+
+    environment:
+      API_GATEWAY_URL: http://ticketu-api-gateway:8080
+
+    restart: unless-stopped
+
+    networks:
+      - plataforma-eventos-net
+
+networks:
+  plataforma-eventos-net:
+    external: true
