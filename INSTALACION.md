@@ -13,7 +13,6 @@ El backend utiliza Node.js, Express y MongoDB. Se integra con Auth para la auten
 - Microservicio Auth disponible.
 - API Gateway compartido disponible.
 - RabbitMQ compartido disponible.
-- Node.js y npm para ejecutar el frontend mientras no esté contenedorizado.
 
 ## 3. Configuración
 
@@ -40,47 +39,88 @@ Las direcciones y credenciales deben corresponder a los servicios disponibles en
 
 No se deben subir contraseñas ni archivos `.env` con credenciales reales a GitHub.
 
-## 4. Iniciar MongoDB
 
-Verificar que exista la red Docker compartida:
+## 4. Iniciar los servicios
 
-`docker network inspect plataforma-eventos-net`
+El proyecto incluye un `docker-compose.yml` en la carpeta principal, que permite iniciar MongoDB, el backend y el frontend con un solo comando.
 
-Si se trata de una instalación local y la red no existe, crearla con:
+Primero, comprobar que exista la red compartida:
 
-`docker network create plataforma-eventos-net`
+```powershell
+docker network inspect plataforma-eventos-net
+```
 
-En workstation debe utilizarse la red acordada con el equipo de plataforma.
+Si es una instalación local y no existe, crearla con:
 
-Entrar a la carpeta `bd-promociones` y ejecutar:
+```powershell
+docker network create plataforma-eventos-net
+```
 
-`docker compose up -d`
+En workstation se debe utilizar la red acordada con el equipo de plataforma. El API Gateway, RabbitMQ y Auth deben estar disponibles por separado.
 
-MongoDB utiliza el nombre `mongo-promociones` y el puerto interno `27017`.
+Desde la carpeta principal `Promociones-TITEC`, ejecutar:
 
-El archivo `seed.js` crea las colecciones, los índices y los datos iniciales cuando se inicializa un volumen vacío.
+```powershell
+docker compose up -d --build
+```
 
-No ejecutar `docker compose down -v`, ya que elimina volúmenes y puede provocar pérdida de datos.
+Comprobar el estado de los contenedores:
 
-## 5. Iniciar el backend
+```powershell
+docker compose ps
+```
 
-Entrar a la carpeta `backend-promociones` y ejecutar:
+Se deben iniciar:
 
-`docker compose up -d --build`
+- `mongo-promociones`
+- `promociones-service`
+- `promociones-frontend`
 
-El backend utiliza el puerto interno 3000 y, en la configuración local actual, se publica mediante el puerto 3009.
+MongoDB utiliza el volumen `bd-promociones_mongo_data` para conservar sus datos.
 
-Para comprobar su funcionamiento local:
+El archivo `seed.js` se ejecuta al inicializar una base de datos vacía. Si el volumen ya contiene datos, no se vuelven a insertar automáticamente.
 
-`curl.exe http://localhost:3009/health`
+No ejecutar `docker compose down -v`, porque puede eliminar los datos almacenados.
 
-Respuesta esperada:
 
-`{"servicio":"promociones","estado":"ok","base_datos":"conectada"}`
+## 5. Comprobar el funcionamiento
 
-Para consultar los registros:
+Con los contenedores iniciados, el sistema utiliza estos puertos locales:
 
-`docker logs --tail 30 promociones-service`
+| Servicio | Dirección |
+|---|---|
+| Frontend | `http://localhost:3011` |
+| Backend | `http://localhost:3009` |
+| API Gateway compartido | `http://localhost:8080` |
+
+Los puertos y direcciones pueden cambiar según la configuración de workstation.
+
+Para comprobar el backend:
+
+```powershell
+curl.exe http://localhost:3009/health
+```
+
+Respuesta esperada cuando MongoDB está conectado:
+
+```json
+{"servicio":"promociones","estado":"ok","base_datos":"conectada"}
+```
+
+Para comprobar los registros:
+
+```powershell
+docker logs --tail 30 promociones-service
+```
+
+Para comprobar que el frontend puede consultar promociones mediante el Gateway, se puede utilizar un identificador de evento existente:
+
+```powershell
+curl.exe http://localhost:3011/api/promociones/evento/evt-demo
+```
+
+`evt-demo` corresponde al entorno de pruebas local. En workstation debe utilizarse un evento que exista en ese ambiente.
+
 
 ## 6. Integración con Auth
 
@@ -108,7 +148,7 @@ Las pruebas deben ejecutarse a través de la dirección del Gateway configurada 
 
 Ejemplo local, con el Gateway en el puerto 8080:
 
-`curl.exe http://localhost:8080/api/promociones/evento/evt-123`
+curl.exe http://localhost:8080/api/promociones/evento/evt-demo
 
 Para comprobar el recorrido de las solicitudes:
 
@@ -153,10 +193,36 @@ Este archivo describe cómo verificar:
 
 Las pruebas locales de I2 e I3 se realizaron correctamente. Deben repetirse utilizando los servicios reales disponibles en workstation.
 
+
 ## 10. Frontend y flujo principal
 
-**Pendiente de completar antes de la entrega final.**
+El frontend está desarrollado con Next.js y se ejecuta mediante Docker junto al backend y MongoDB.
 
-Se debe conectar el frontend a los datos reales del backend, integrar la sesión de Auth y documentar un flujo principal que pueda ejecutarse con un usuario de prueba.
+En el entorno local se accede desde:
 
-La instalación definitiva debe incluir los comandos para iniciar el frontend, su dirección de acceso y los pasos concretos para crear o consultar una promoción.
+`http://localhost:3011`
+
+La interfaz permite consultar las promociones almacenadas en MongoDB a través del API Gateway.
+
+También incluye formularios para crear y editar promociones, además de la opción de activar o desactivar una promoción.
+
+Estas operaciones utilizan las rutas protegidas del backend y requieren una sesión válida con rol `organizador` o `staff`.
+
+Las solicitudes sin sesión devuelven HTTP 401 y las solicitudes de usuarios autenticados sin autorización deben devolver HTTP 403.
+
+### Verificación local realizada
+
+Se comprobó el siguiente recorrido:
+
+1. Iniciar el sistema con `docker compose up -d --build`.
+2. Acceder al frontend mediante el puerto 3011.
+3. Consultar la promoción `INTEGRACION2910` del evento `evt-demo`.
+4. Comprobar que se muestran sus datos almacenados en MongoDB.
+5. Intentar crear o editar una promoción sin iniciar sesión.
+6. Verificar que el backend rechaza las operaciones con HTTP 401.
+
+### Verificación pendiente en workstation
+
+Se debe completar la conexión con el servicio Auth real, disponer de un usuario de prueba autorizado y comprobar la creación y edición de promociones con una sesión válida.
+
+Los identificadores de eventos, usuarios y direcciones deberán corresponder al entorno de workstation.

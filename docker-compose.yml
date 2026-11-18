@@ -1,0 +1,73 @@
+
+services:
+  mongo-promociones:
+    image: mongo:7
+    container_name: mongo-promociones
+
+    volumes:
+      - datos-promociones:/data/db
+      - ./bd-promociones/seed.js:/docker-entrypoint-initdb.d/seed.js:ro
+
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping')"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+    restart: unless-stopped
+
+    networks:
+      - plataforma-eventos-net
+
+  promociones-service:
+    build:
+      context: ./backend-promociones
+
+    container_name: promociones-service
+
+    ports:
+      - "3009:3000"
+
+    env_file:
+      - ./backend-promociones/.env
+
+    environment:
+      PORT: 3000
+      MONGO_URI: mongodb://mongo-promociones:27017/promociones_db
+
+    depends_on:
+      mongo-promociones:
+        condition: service_healthy
+
+    restart: unless-stopped
+
+    networks:
+      - plataforma-eventos-net
+
+  promociones-frontend:
+    build:
+      context: ./frontend-promociones
+      args:
+        API_GATEWAY_URL: ${API_GATEWAY_URL:-http://ticketu-api-gateway:8080}
+
+    image: promociones-frontend
+    container_name: promociones-frontend
+
+    ports:
+      - "3011:3000"
+
+    environment:
+      API_GATEWAY_URL: ${API_GATEWAY_URL:-http://ticketu-api-gateway:8080}
+
+    restart: unless-stopped
+
+    networks:
+      - plataforma-eventos-net
+
+volumes:
+  datos-promociones:
+    name: bd-promociones_mongo_data
+
+networks:
+  plataforma-eventos-net:
+    external: true

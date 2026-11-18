@@ -103,6 +103,19 @@ const ayer = new Date(now.getTime() - DAY);
 const en90 = new Date(now.getTime() + 90 * DAY);
 
 const res = db.promocions.insertMany([
+  // Promoción de prueba para el frontend
+  {
+    nombre_codigo: "INTEGRACION2910",
+    id_evento: "evt-demo",
+    porcentaje_descuento: 20,
+    fecha_inicio: ayer,
+    fecha_fin: en90,
+    cantidad_codigos: 10,
+    usos_actuales: 0,
+    minimo_entradas: 1,
+    max_usos_por_cuenta: 1,
+    activo: true
+  },
   // Caso feliz principal
   { nombre_codigo: "DESC50",    id_evento: "evt-123", porcentaje_descuento: 50, fecha_inicio: ayer, fecha_fin: en90,
     cantidad_codigos: 99, usos_actuales: 1, minimo_entradas: 1, max_usos_por_cuenta: 1, activo: true },

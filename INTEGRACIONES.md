@@ -10,7 +10,7 @@ Se declaran las tres integraciones exigidas para la evaluación.
 | Integración | Tipo | Módulo contraparte | Servicio, ruta o tópico | Cómo se evidencia | Dónde verificarlo |
 |---|---|---|---|---|---|
 | I1 | A. Autenticación | Auth | GET /internal/validar-sesion | Validación de sesión y restricción por rol | Rutas de Promociones y logs de Auth |
-| I2 | B. API Gateway | Entradas / Gateway | POST /api/promociones/validar/{nombre_codigo} | Respuesta HTTP y trazas con requestId | Logs del Gateway y de Promociones |
+| I2 | B. API Gateway | API Gateway (consumidor previsto: Entradas) | POST /api/promociones/validar/{nombre_codigo} | Respuesta HTTP y trazas con requestId | Logs del Gateway y de Promociones |
 | I3 | C. Broker | Pagos | pago.completado | Consumo del evento y registro del uso del cupón | RabbitMQ, logs de Promociones y MongoDB |
 
 ## I1. Autenticación
@@ -35,12 +35,13 @@ Pendiente:
 Contrato de referencia:
 - arquitectura-main/CONTRATO_INTEGRACION_AUTH.md
 
+
 ## I2. API Gateway
 
 Promociones provee la validación de cupones mediante el API Gateway.
 
 Ruta:
-POST /api/promociones/validar/{nombre_codigo}
+`POST /api/promociones/validar/{nombre_codigo}`
 
 La dirección del Gateway se configura mediante variables de entorno.
 
@@ -49,18 +50,41 @@ Pruebas locales realizadas:
 - Validación de un cupón existente: HTTP 200.
 - Validación de un cupón inexistente: HTTP 404.
 
-Comando de verificación local:
+### Comando de verificación local
 
-curl.exe -i -X POST "http://localhost:8080/api/promociones/validar/INTEGRACION2910" -H "Content-Type: application/json" -d "{\"id_evento\":\"evt-demo\",\"cantidad_entradas\":1,\"precio_base\":15000,\"usuario\":{\"id_usuario\":\"prueba-gw-1711\",\"rol_usuario\":\"cliente\"}}"
+Ejecutar en PowerShell:
 
-La petición puede identificarse mediante x-request-id en los registros del Gateway y de Promociones.
+```powershell
+$datos = @{
+    id_evento = "evt-demo"
+    cantidad_entradas = 1
+    precio_base = 15000
+    usuario = @{
+        id_usuario = "prueba-gw-1711"
+        rol_usuario = "cliente"
+    }
+} | ConvertTo-Json -Depth 4
 
-Logs:
+Invoke-RestMethod -Method Post `
+    -Uri "http://localhost:8080/api/promociones/validar/INTEGRACION2910" `
+    -ContentType "application/json" `
+    -Body $datos
+```
 
+Si el cupón es válido, el servicio debe responder indicando que la promoción es válida y entregar el porcentaje de descuento correspondiente.
+
+La petición puede identificarse mediante `x-request-id` en los registros del Gateway y de Promociones.
+
+### Logs de verificación
+
+```powershell
 docker logs --tail 20 ticketu-api-gateway
 docker logs --tail 20 promociones-service
+```
 
-La prueba debe repetirse en workstation con los datos iniciales y la dirección del Gateway correspondiente.
+Los registros permiten comprobar que la solicitud pasó por el Gateway y llegó al backend de Promociones.
+
+La prueba debe repetirse en workstation utilizando los datos iniciales y la dirección del Gateway correspondiente.
 
 ## I3. Broker
 
@@ -92,9 +116,16 @@ docker logs --tail 30 promociones-service
 
 En los registros se puede observar el identificador del pago, la fecha y el estado del procesamiento.
 
+Prueba de disponibilidad del broker:
+- Se ejecutó una segunda instancia del backend con una dirección de RabbitMQ inaccesible.
+- Se registraron los intentos fallidos de conexión.
+- El endpoint `/health` continuó respondiendo HTTP 200.
+- La prueba se realizó localmente, sin interrumpir el broker compartido.
+
 Pendiente:
-- Comprobar la integración con el módulo Pagos real en workstation.
-- Verificar el comportamiento cuando RabbitMQ no está disponible.
+- Comprobar la recepción de un evento emitido por el módulo Pagos real en workstation.
+- Repetir la prueba de disponibilidad con la configuración definitiva de workstation.
+
 
 ## Observación
 
