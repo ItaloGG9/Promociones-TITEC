@@ -16,6 +16,11 @@ exports.crearPromocion = async (req, res) => {
       max_usos_por_cuenta 
     } = req.body;
 
+    // Comprobar que se ingresó un código promocional
+    if (typeof nombre_codigo !== 'string' || !nombre_codigo.trim()) {
+      return res.status(400).json({ mensaje: 'Debes ingresar un código promocional.' });
+    }
+
     // El microservicio Panel Organizador no está disponible en este entorno.
     // id_evento se conserva como referencia externa; la creación no depende
     // de una llamada remota inexistente. La elegibilidad del evento debe
