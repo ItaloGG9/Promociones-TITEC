@@ -9,7 +9,7 @@ Para la evaluación se implementaron las siguientes integraciones:
 | Integración | Tipo | Módulo contraparte | Servicio, ruta o tópico | Cómo se evidencia |
 |---|---|---|---|---|
 | I1 | A. Autenticación | Auth | `GET /internal/validar-sesion` | Validación de sesiones y restricción de acceso según el rol |
-| I2 | B. API Gateway | API Gateway (consumidor previsto: Entradas) | `POST /api/promociones/validar/{nombre_codigo}` | Respuestas HTTP y trazabilidad con `x-request-id` |
+| I2 | B. API Gateway | API Gateway (consumidor previsto: Entradas) | `POST /api/promociones/evaluar` | Respuestas HTTP y trazabilidad con `x-request-id` |
 | I3 | C. Broker | Pagos | `pago.completado` | Consumo del evento, registro del uso y actualización del stock |
 
 ## I1. Autenticación
@@ -55,9 +55,11 @@ Estas pruebas se realizaron a través de los servicios reales de Auth y Promocio
 
 Promociones provee la validación de códigos promocionales mediante el API Gateway.
 
-**Ruta:**
+**Ruta principal utilizada por Entradas:**
+POST /api/promociones/evaluar
 
-`POST /api/promociones/validar/{nombre_codigo}`
+**Ruta adicional de validación:**
+POST /api/promociones/validar/{nombre_codigo}
 
 La dirección del Gateway se configura según el entorno de despliegue.
 
