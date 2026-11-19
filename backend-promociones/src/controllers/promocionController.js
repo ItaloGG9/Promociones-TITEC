@@ -2,6 +2,18 @@ const Promocion = require('../models/Promocion');
 const RegistroUso = require('../models/RegistroUso');
 const mongoose = require('mongoose');
 
+// Reglas de fechas de una promoción (se validan aquí aunque el front ya las controle,
+// porque la API también se puede llamar por el gateway o Postman).
+function validarFechas(fechaInicio, fechaFin) {
+  const inicio = fechaInicio ? new Date(fechaInicio) : null;
+  const fin = fechaFin ? new Date(fechaFin) : null;
+  if (fechaInicio && Number.isNaN(inicio.getTime())) return 'La fecha de inicio no es válida.';
+  if (fechaFin && Number.isNaN(fin.getTime())) return 'La fecha límite no es válida.';
+  if (fin && fin.getTime() < Date.now()) return 'La fecha límite no puede ser una fecha pasada.';
+  if (inicio && fin && fin.getTime() < inicio.getTime()) return 'La fecha límite no puede ser anterior a la fecha de inicio.';
+  return null;
+}
+
 // H1: Crear código de descuento (asociado a evento pagado)
 exports.crearPromocion = async (req, res) => {
   try {
@@ -25,6 +37,14 @@ exports.crearPromocion = async (req, res) => {
     // id_evento se conserva como referencia externa; la creación no depende
     // de una llamada remota inexistente. La elegibilidad del evento debe
     // verificarse al integrar el servicio real del organizador.
+
+    if (!fecha_inicio || !fecha_fin) {
+      return res.status(400).json({ mensaje: 'Datos inválidos', detalle: ['fecha_inicio y fecha_fin son obligatorias.'] });
+    }
+    const errorFechas = validarFechas(fecha_inicio, fecha_fin);
+    if (errorFechas) {
+      return res.status(400).json({ mensaje: errorFechas });
+    }
 
     const promocionExistente = await Promocion.findOne({ nombre_codigo: nombre_codigo.toUpperCase() });
     if (promocionExistente) {
@@ -84,6 +104,19 @@ exports.modificarPromocion = async (req, res) => {
         return res.status(400).json({
           mensaje: 'No se puede modificar el nombre del código ni el porcentaje de un cupón que ya fue utilizado.'
         });
+      }
+    }
+
+    if (fecha_inicio || fecha_fin) {
+      // Se valida la combinación final: lo que llega + lo que ya tenía la promoción.
+      // La fecha límite solo se exige futura cuando se cambia (desactivar una promoción vencida sigue permitido).
+      const inicioFinal = fecha_inicio || promo.fecha_inicio;
+      const errorFechas = fecha_fin
+        ? validarFechas(inicioFinal, fecha_fin)
+        : validarFechas(fecha_inicio, null)
+          || (new Date(fecha_inicio) > promo.fecha_fin ? 'La fecha de inicio no puede ser posterior a la fecha límite.' : null);
+      if (errorFechas) {
+        return res.status(400).json({ mensaje: errorFechas });
       }
     }
 
@@ -168,42 +201,56 @@ exports.validarCodigo = async (req, res) => {
 
 // Contrato Entradas: POST /api/v1/promociones/evaluar (BE3 / Consumido por Entradas/Inventario)
 exports.evaluarPromocionVigente = async (req, res) => {
+  // Servicio provisto a Entradas por el API Gateway (I2):
+  //   POST /api/promociones/evaluar  { id_evento, id_usuario, cantidad_entradas, codigo_promocion? }
+  // Entradas (FrontendTitec, modules/entradas/api.ts) aplica el descuento si porcentaje_descuento > 0.
+  // Si no aplica, responde 200 con porcentaje_descuento 0 y el motivo (Entradas sigue sin descuento).
   try {
-    const { id_evento, id_usuario, cantidad_entradas } = req.body;
+    const { id_evento, id_usuario, cantidad_entradas } = req.body || {};
+    const codigo = String(req.body?.codigo_promocion || req.body?.nombre_codigo || '').trim().toUpperCase();
+    const cantidad = Number(cantidad_entradas);
 
-    if (!id_evento || !id_usuario || !cantidad_entradas) {
-      return res.status(400).json({ mensaje: 'Datos incompletos para evaluar la promoción.' });
+    if (!id_evento || !id_usuario || !Number.isFinite(cantidad) || cantidad < 1) {
+      return res.status(400).json({ porcentaje_descuento: 0, motivo: 'datos_incompletos',
+        mensaje: 'Datos incompletos para evaluar la promoción (id_evento, id_usuario y cantidad_entradas).' });
     }
 
+    const sinDescuento = (motivo, mensaje) => res.status(200).json({ porcentaje_descuento: 0, motivo, mensaje });
     const ahora = new Date();
-    // Busca alguna promoción automática/activa para el evento
-    const promo = await Promocion.findOne({
-      id_evento,
-      activo: true,
-      fecha_inicio: { $lte: ahora },
-      fecha_fin: { $gte: ahora },
-      cantidad_codigos: { $gt: 0 },
-      minimo_entradas: { $lte: cantidad_entradas }
-    });
+    let promo;
 
-    if (!promo) {
-      return res.status(200).json({ porcentaje_descuento: 0 });
+    if (codigo) {
+      promo = await Promocion.findOne({ nombre_codigo: codigo });
+      if (!promo) return sinDescuento('codigo_inexistente', 'El código promocional no existe.');
+      if (promo.id_evento !== String(id_evento)) return sinDescuento('otro_evento', 'El código no corresponde a este evento.');
+      if (!promo.activo) return sinDescuento('inactivo', 'El código promocional no está activo.');
+      if (promo.fecha_inicio > ahora) return sinDescuento('no_vigente', 'El código promocional aún no está vigente.');
+      if (promo.fecha_fin < ahora) return sinDescuento('expirado', 'El código promocional ha expirado.');
+      if (promo.cantidad_codigos <= 0) return sinDescuento('agotado', 'El código promocional está agotado.');
+      if (cantidad < promo.minimo_entradas) return sinDescuento('minimo_entradas', `Este código requiere al menos ${promo.minimo_entradas} entradas.`);
+    } else {
+      // Sin código: promoción automática vigente del evento (comportamiento anterior)
+      promo = await Promocion.findOne({
+        id_evento: String(id_evento), activo: true,
+        fecha_inicio: { $lte: ahora }, fecha_fin: { $gte: ahora },
+        cantidad_codigos: { $gt: 0 }, minimo_entradas: { $lte: cantidad },
+      });
+      if (!promo) return sinDescuento('sin_promocion', 'No hay promociones vigentes para este evento.');
     }
 
-    const usosUsuario = await RegistroUso.countDocuments({
-      id_promocion: promo._id,
-      id_usuario
-    });
-
+    const usosUsuario = await RegistroUso.countDocuments({ id_promocion: promo._id, id_usuario: String(id_usuario) });
     if (usosUsuario >= promo.max_usos_por_cuenta) {
-      return res.status(200).json({ porcentaje_descuento: 0 });
+      return sinDescuento('limite_usuario', 'Ya alcanzaste el límite de usos de este código.');
     }
 
     return res.status(200).json({
       porcentaje_descuento: promo.porcentaje_descuento,
-      id_promocion: promo._id.toString()
+      id_promocion: promo._id.toString(),
+      nombre_codigo: promo.nombre_codigo,
+      descripcion: `Descuento del ${promo.porcentaje_descuento}% con el código ${promo.nombre_codigo}`,
     });
   } catch (error) {
-    return res.status(500).json({ mensaje: 'Error interno del servicio de Promociones.', error: error.message });
+    console.error(`[Evaluar] error: ${error.message}`);
+    return res.status(500).json({ porcentaje_descuento: 0, mensaje: 'Error interno del servicio de Promociones.' });
   }
 };
