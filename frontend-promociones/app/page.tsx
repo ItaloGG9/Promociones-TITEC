@@ -33,6 +33,28 @@ type PromocionAPI = {
 };
 
 
+// Fecha de hoy en hora local (YYYY-MM-DD), para comparar con el valor del <input type="date">
+function fechaHoyLocal() {
+  const hoy = new Date();
+  return `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, "0")}-${String(hoy.getDate()).padStart(2, "0")}`;
+}
+
+// Fin del día elegido en hora local (Chile), convertido a ISO para el backend.
+// Antes se enviaba "T23:59:59.000Z" (UTC): en Chile eso son las 20:59 o 21:59 del mismo día,
+// por lo que una promoción "hasta hoy" vencía antes de terminar el día.
+function finDelDiaLocal(fecha: string) {
+  return new Date(`${fecha}T23:59:59`).toISOString();
+}
+
+// Inicio de sesión de la plataforma (front común, módulo Auth). Configurable con NEXT_PUBLIC_LOGIN_URL;
+// por defecto, /auth del front común en el mismo host (puerto 3000), volviendo a esta página.
+function urlLogin() {
+  if (typeof window === "undefined") return "/auth";
+  const base = process.env.NEXT_PUBLIC_LOGIN_URL
+    || `${window.location.protocol}//${window.location.hostname}:3000/auth`;
+  return `${base}${base.includes("?") ? "&" : "?"}volver=${encodeURIComponent(window.location.href)}`;
+}
+
 export default function Home() {
     // Evento que se mostrará en el panel
   const idEvento = process.env.NEXT_PUBLIC_EVENTO_ID || "evt-demo";
@@ -43,6 +65,8 @@ export default function Home() {
   const [tipoDescuento, setTipoDescuento] = useState("Porcentaje (%)");
   const [promoEditando, setPromoEditando] = useState<Promocion | null>(null);
   const [errorFormulario, setErrorFormulario] = useState("");
+  // true cuando Promociones responde 401 (sin sesión de Auth): se ofrece ir al login común
+  const [necesitaLogin, setNecesitaLogin] = useState(false);
 
   // Cargar las promociones desde el backend
   useEffect(() => {
@@ -125,6 +149,7 @@ export default function Home() {
       // Comprobar si se pudo modificar la promoción
       if (!respuesta.ok) {
         if (respuesta.status === 401) {
+          setNecesitaLogin(true);
           throw new Error("Debes iniciar sesión para modificar promociones");
         }
 
@@ -185,6 +210,12 @@ const handleAbrirEdicion = (id: number) => {
     const stock = Number(datos.get("stock"));
     const fechaLimite = String(datos.get("fechaLimite") || "");
 
+    // La fecha límite no puede ser anterior a hoy (el input tiene "min", pero se puede escribir a mano)
+    if (fechaLimite && fechaLimite < fechaHoyLocal()) {
+      setErrorFormulario("La fecha límite no puede ser una fecha pasada");
+      return;
+    }
+
     // Comprobar los valores antes de enviarlos
     if (!codigo || !evento || !fechaLimite ||
         !Number.isInteger(descuento) || descuento < 1 || descuento > 100 ||
@@ -216,7 +247,7 @@ const handleAbrirEdicion = (id: number) => {
       const cambios = {
         nombre_codigo: codigo,
         porcentaje_descuento: descuento,
-        fecha_fin: `${fechaLimite}T23:59:59.000Z`,
+        fecha_fin: finDelDiaLocal(fechaLimite),
         cantidad_codigos: stock - promoEditando.stockUsado
       };
 
@@ -239,6 +270,7 @@ const handleAbrirEdicion = (id: number) => {
         // Revisar si la edición fue permitida
         if (!respuesta.ok) {
           if (respuesta.status === 401) {
+          setNecesitaLogin(true);
             throw new Error("Debes iniciar sesión para editar promociones");
           }
 
@@ -270,7 +302,7 @@ const handleAbrirEdicion = (id: number) => {
       id_evento: evento,
       porcentaje_descuento: descuento,
       fecha_inicio: new Date().toISOString(),
-      fecha_fin: `${fechaLimite}T23:59:59.000Z`,
+      fecha_fin: finDelDiaLocal(fechaLimite),
       cantidad_codigos: stock,
       minimo_entradas: 1,
       max_usos_por_cuenta: 1
@@ -292,6 +324,7 @@ const handleAbrirEdicion = (id: number) => {
       // Revisar si el backend rechazó la solicitud
       if (!respuesta.ok) {
         if (respuesta.status === 401) {
+          setNecesitaLogin(true);
           throw new Error("Debes iniciar sesión para crear promociones");
         }
 
@@ -340,14 +373,7 @@ const handleAbrirEdicion = (id: number) => {
   const defaults = getValoresPorDefecto();
 
   // NUEVO: Calculamos la fecha de hoy en formato YYYY-MM-DD para bloquear fechas pasadas
-  const getFechaMinima = () => {
-    const hoy = new Date();
-    const yyyy = hoy.getFullYear();
-    const mm = String(hoy.getMonth() + 1).padStart(2, '0');
-    const dd = String(hoy.getDate()).padStart(2, '0');
-    return `${yyyy}-${mm}-${dd}`;
-  };
-  const fechaMinima = getFechaMinima();
+  const fechaMinima = fechaHoyLocal();
 
   return (
     <main className="min-h-screen p-6 md:p-10 max-w-[1200px] mx-auto relative">
@@ -383,6 +409,15 @@ const handleAbrirEdicion = (id: number) => {
 
       {cargando && (
         <p>Cargando promociones...</p>
+      )}
+
+      {necesitaLogin && (
+        <div className="mb-5 p-4 bg-amber-50 border border-amber-200 rounded-lg flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-sm text-amber-900">
+          <span>Para crear o modificar promociones debes iniciar sesión con tu cuenta de Ticket-U (organizador).</span>
+          <a href={urlLogin()} className="px-4 py-2 rounded-lg bg-brand-navy text-white font-semibold text-center">
+            Iniciar sesión
+          </a>
+        </div>
       )}
 
       {error && (
@@ -544,6 +579,9 @@ const handleAbrirEdicion = (id: number) => {
             {errorFormulario && (
               <p className="px-5 pb-2 text-sm text-red-600">
                 {errorFormulario}
+                {necesitaLogin && (
+                  <> · <a href={urlLogin()} className="underline font-semibold">Iniciar sesión</a></>
+                )}
               </p>
             )}
             <div className="p-5 border-t border-brand-border flex items-center justify-end gap-3 bg-gray-50">
