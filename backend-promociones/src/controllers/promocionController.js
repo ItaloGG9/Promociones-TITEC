@@ -82,6 +82,26 @@ exports.listarPorEvento = async (req, res) => {
   }
 };
 
+// Listado completo para el panel de administración del frontend compartido
+// (FrontendTitec, src/modules/promociones/api.ts -> listarPromociones: GET /api/promociones)
+exports.listarTodas = async (req, res) => {
+  try {
+    const promociones = await Promocion.find().sort({ createdAt: -1 });
+    return res.status(200).json(promociones);
+  } catch (error) {
+    return res.status(500).json({ mensaje: 'Error al obtener promociones.' });
+  }
+};
+
+// Usuario de la sesión según Auth, para el frontend compartido
+// (FrontendTitec, src/modules/promociones/api.ts -> obtenerSesion: GET /api/promociones/sesion)
+exports.obtenerSesion = (req, res) => {
+  return res.status(200).json({
+    id_usuario: req.usuario.id_usuario,
+    rol_usuario: req.usuario.rol,
+  });
+};
+
 // Modificación y desactivación de códigos
 exports.modificarPromocion = async (req, res) => {
   try {

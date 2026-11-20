@@ -4,6 +4,12 @@ const controller = require('../controllers/promocionController');
 const { validarSesion, permitirAdministracion } = require('../middlewares/authMiddleware');
 
 
+// Rutas usadas por el frontend compartido (FrontendTitec, src/modules/promociones/api.ts)
+// Sesión actual según Auth: 200 { id_usuario, rol_usuario } o 401 sin sesión
+router.get('/api/promociones/sesion', validarSesion, controller.obtenerSesion);
+// Listado completo para el panel de administración (organizador o staff)
+router.get('/api/promociones', validarSesion, permitirAdministracion, controller.listarTodas);
+
 router.post('/api/promociones', validarSesion, permitirAdministracion, controller.crearPromocion);
 
 router.get('/api/promociones/evento/:id_evento', controller.listarPorEvento);
@@ -44,6 +50,25 @@ router.post('/api/promociones/evaluar', controller.evaluarPromocionVigente);
  *     responses:
  *       201: { description: Promoción creada exitosamente }
  *       400: { description: Error de validación o evento gratuito }
+ */
+/**
+ * @openapi
+ * /api/promociones/sesion:
+ *   get:
+ *     summary: Usuario de la sesión actual según Auth (frontend compartido)
+ *     tags: [Promociones]
+ *     responses:
+ *       200: { description: "{ id_usuario, rol_usuario }" }
+ *       401: { description: Sin sesión o sesión inválida }
+ *       503: { description: Auth no disponible }
+ * /api/promociones:
+ *   get:
+ *     summary: Listar todas las promociones (panel de administración, organizador o staff)
+ *     tags: [Promociones]
+ *     responses:
+ *       200: { description: Lista de promociones }
+ *       401: { description: Sin sesión }
+ *       403: { description: Rol sin permiso }
  */
 router.post('/api/v1/promociones', validarSesion, permitirAdministracion, controller.crearPromocion);
 

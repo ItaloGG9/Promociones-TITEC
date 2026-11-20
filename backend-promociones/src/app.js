@@ -12,7 +12,11 @@ const PORT = process.env.PORT || 3005;
 const MONGO_URI = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/promociones_db';
 
 // Middlewares
-app.use(cors());
+// CORS con credenciales: el frontend compartido envía la cookie jwt de Auth a través del API Gateway.
+// Con "*" el navegador rechaza la respuesta cuando hay cookies, por eso se refleja el origen.
+// CORS_ORIGINS=http://localhost:3000,... limita los orígenes; vacío = refleja el origen de la petición.
+const ORIGENES = (process.env.CORS_ORIGINS || '').split(',').map((o) => o.trim()).filter(Boolean);
+app.use(cors({ origin: ORIGENES.length ? ORIGENES : true, credentials: true }));
 app.use(express.json());
 
 
