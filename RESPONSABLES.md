@@ -1,9 +1,9 @@
-# Asignación de Responsables por Rol - Promociones
+# Asignación de responsables por rol — Promociones (Grupo 9)
 
-| Rol | Ítems de la Rúbrica | Responsable(s) |
+| Rol | Ítems de la rúbrica | Responsable(s) |
 | --- | --- | --- |
-| Back End | BE1 | Nicolas Tapia |
-| Base de Datos | BD1 | Italo Grossi |
-| UI/UX (front end) | UI1 | Diego Fernández |
-| Gestión | GE1 | Fernando Zamora |
-| Calidad | CA1 | Nicolas Tapia |
+| Back End | BE1, BE2, BE3 | Nicolas Tapia |
+| Base de Datos | BD1, BD2, BD3, BD4 | Italo Grossi |
+| UI/UX (front end) | UI1, UI2, UI3 | Diego Fernández |
+| Gestión | GE1, GE2, GE3, GE4 | Fernando Zamora |
+| Calidad | CA1, CA2 | Nicolas Tapia |
