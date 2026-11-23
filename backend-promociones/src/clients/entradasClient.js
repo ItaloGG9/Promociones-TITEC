@@ -1,6 +1,6 @@
 const axios = require('axios');
 
-const ENTRADAS_SERVICE_URL = process.env.ENTRADAS_SERVICE_URL || 'http://localhost:3002/api/v1/inventario';
+const ENTRADAS_SERVICE_URL = process.env.ENTRADAS_SERVICE_URL || 'http://entradas-service:3000/api/v1/inventario';
 
 /**
  * Cliente de integración con el Microservicio de Entradas / Inventario.

@@ -194,6 +194,10 @@ Queda pendiente comprobar el flujo completo desde el navegador, las sesiones ven
 Promociones ofrece los siguientes servicios:
 
 - `GET /api/promociones/evento/:id_evento`
+- `GET /api/promociones/eventos/:id_evento/promociones` (frontend compartido, detalle del evento)
+- `GET /api/promociones/sesion` (frontend compartido: usuario de la sesión según Auth; 401 sin sesión)
+- `GET /api/promociones` (frontend compartido: panel de administración; organizador o staff)
+- `POST /api/promociones` y `PATCH /api/promociones/:id_promocion` (crear y modificar; organizador o staff)
 - `POST /api/promociones/validar/:nombre_codigo`
 
 Las pruebas deben ejecutarse a través de la dirección del Gateway configurada para workstation.
