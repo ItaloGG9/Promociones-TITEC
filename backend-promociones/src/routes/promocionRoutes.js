@@ -3,219 +3,153 @@ const router = express.Router();
 const controller = require('../controllers/promocionController');
 const { validarSesion, permitirAdministracion } = require('../middlewares/authMiddleware');
 
-// Rutas publicadas por el API Gateway (/api/promociones/* se reenvía sin reescribir la ruta).
-// Las consume el frontend compartido (FrontendTitec, src/modules/promociones/api.ts),
-// Entradas (POST /api/promociones/evaluar) y el checkout (POST /api/promociones/validar/:codigo).
+
+router.post('/api/promociones', validarSesion, permitirAdministracion, controller.crearPromocion);
+
+router.get('/api/promociones/evento/:id_evento', controller.listarPorEvento);
+
+// Alias usado por FrontendTitec
+router.get('/api/promociones/eventos/:id_evento/promociones', controller.listarPorEvento);
+
+router.patch('/api/promociones/:id_promocion', validarSesion, permitirAdministracion, controller.modificarPromocion);
+
+router.post('/api/promociones/validar/:nombre_codigo', controller.validarCodigo);
+
+router.post('/api/promociones/evaluar', controller.evaluarPromocionVigente);
+
+
 
 /**
  * @openapi
- * /api/promociones/sesion:
- *   get:
- *     summary: Usuario de la sesión actual según Auth
- *     description: La usa el frontend compartido para saber si mostrar el panel de administración.
- *     tags: [Administración]
- *     security: [{ cookieAuth: [] }]
- *     responses:
- *       200:
- *         description: Sesión válida
- *         content:
- *           application/json:
- *             schema: { $ref: '#/components/schemas/Sesion' }
- *       401: { $ref: '#/components/responses/SinSesion' }
- *       503: { $ref: '#/components/responses/AuthNoDisponible' }
- */
-router.get('/api/promociones/sesion', validarSesion, controller.obtenerSesion);
-
-/**
- * @openapi
- * /api/promociones:
- *   get:
- *     summary: Listar todas las promociones
- *     description: Panel de administración del frontend compartido. Ordenadas de la más reciente a la más antigua.
- *     tags: [Administración]
- *     security: [{ cookieAuth: [] }]
- *     responses:
- *       200:
- *         description: Lista de promociones
- *         content:
- *           application/json:
- *             schema:
- *               type: array
- *               items: { $ref: '#/components/schemas/Promocion' }
- *       401: { $ref: '#/components/responses/SinSesion' }
- *       403: { $ref: '#/components/responses/SinPermiso' }
- *       503: { $ref: '#/components/responses/AuthNoDisponible' }
+ * /api/v1/promociones:
  *   post:
- *     summary: Crear un código promocional (HU-01)
- *     tags: [Administración]
- *     security: [{ cookieAuth: [] }]
+ *     summary: Crear un nuevo código promocional (HU-01)
+ *     tags: [Promociones]
  *     requestBody:
  *       required: true
  *       content:
  *         application/json:
- *           schema: { $ref: '#/components/schemas/PromocionNueva' }
+ *           schema:
+ *             type: object
+ *             required: [nombre_codigo, id_evento, porcentaje_descuento, fecha_inicio, fecha_fin, cantidad_codigos]
+ *             properties:
+ *               nombre_codigo: { type: string, example: "FIESTA2026" }
+ *               id_evento: { type: string, example: "evt-123" }
+ *               porcentaje_descuento: { type: number, example: 20 }
+ *               fecha_inicio: { type: string, format: date-time, example: "2026-10-08T00:00:00.000Z" }
+ *               fecha_fin: { type: string, format: date-time, example: "2026-10-15T23:59:59.000Z" }
+ *               cantidad_codigos: { type: number, example: 100 }
+ *               minimo_entradas: { type: number, example: 2 }
+ *               max_usos_por_cuenta: { type: number, example: 1 }
  *     responses:
- *       201:
- *         description: Promoción creada
- *         content:
- *           application/json:
- *             schema: { $ref: '#/components/schemas/Promocion' }
- *       400:
- *         description: Datos inválidos (código vacío o duplicado, porcentaje fuera de 1-100, fecha límite pasada o anterior al inicio)
- *         content:
- *           application/json:
- *             schema: { $ref: '#/components/schemas/Error' }
- *             example: { mensaje: 'La fecha límite no puede ser una fecha pasada.' }
- *       401: { $ref: '#/components/responses/SinSesion' }
- *       403: { $ref: '#/components/responses/SinPermiso' }
- *       503: { $ref: '#/components/responses/AuthNoDisponible' }
+ *       201: { description: Promoción creada exitosamente }
+ *       400: { description: Error de validación o evento gratuito }
  */
-router.get('/api/promociones', validarSesion, permitirAdministracion, controller.listarTodas);
-router.post('/api/promociones', validarSesion, permitirAdministracion, controller.crearPromocion);
+router.post('/api/v1/promociones', validarSesion, permitirAdministracion, controller.crearPromocion);
 
 /**
  * @openapi
- * /api/promociones/eventos/{id_evento}/promociones:
+ * /api/v1/promociones/evento/{id_evento}:
  *   get:
- *     summary: Listar las promociones de un evento
- *     description: También disponible como `GET /api/promociones/evento/{id_evento}`.
- *     tags: [Consulta]
+ *     summary: Listar promociones de un evento
+ *     tags: [Promociones]
  *     parameters:
  *       - in: path
  *         name: id_evento
  *         required: true
  *         schema: { type: string }
- *         example: evt-123
  *     responses:
- *       200:
- *         description: Lista de promociones del evento (vacía si no tiene)
- *         content:
- *           application/json:
- *             schema:
- *               type: array
- *               items: { $ref: '#/components/schemas/Promocion' }
+ *       200: { description: Lista de promociones obtenida }
  */
-router.get('/api/promociones/eventos/:id_evento/promociones', controller.listarPorEvento);
-router.get('/api/promociones/evento/:id_evento', controller.listarPorEvento);
+router.get('/api/v1/promociones/evento/:id_evento', controller.listarPorEvento);
 
 /**
  * @openapi
- * /api/promociones/{id_promocion}:
+ * /api/v1/promociones/{id_promocion}:
  *   patch:
- *     summary: Modificar o desactivar un código promocional (HU-03 / HU-04)
- *     tags: [Administración]
- *     security: [{ cookieAuth: [] }]
+ *     summary: Modificar o desactivar un código promocional
+ *     tags: [Promociones]
  *     parameters:
  *       - in: path
  *         name: id_promocion
  *         required: true
  *         schema: { type: string }
  *     requestBody:
- *       required: true
  *       content:
  *         application/json:
- *           schema: { $ref: '#/components/schemas/PromocionCambios' }
+ *           schema:
+ *             type: object
+ *             properties:
+ *               fecha_inicio: { type: string, format: date-time, example: "2026-10-08T00:00:00.000Z" }
+ *               fecha_fin: { type: string, format: date-time, example: "2026-10-20T23:59:59.000Z" }
+ *               cantidad_codigos: { type: number, example: 150 }
+ *               activo: { type: boolean, example: true }
  *     responses:
- *       200:
- *         description: Promoción actualizada
- *         content:
- *           application/json:
- *             schema: { $ref: '#/components/schemas/Promocion' }
- *       400:
- *         description: Fechas inválidas, o intento de cambiar nombre o porcentaje de un código ya usado
- *         content:
- *           application/json:
- *             schema: { $ref: '#/components/schemas/Error' }
- *       401: { $ref: '#/components/responses/SinSesion' }
- *       403: { $ref: '#/components/responses/SinPermiso' }
- *       404:
- *         description: Promoción no encontrada
- *         content:
- *           application/json:
- *             schema: { $ref: '#/components/schemas/Error' }
- *             example: { mensaje: 'Promoción no encontrada.' }
- *       503: { $ref: '#/components/responses/AuthNoDisponible' }
+ *       200: { description: Promoción actualizada exitosamente }
+ *       400: { description: Parámetros inválidos o intento de modificar cupón usado }
  */
-router.patch('/api/promociones/:id_promocion', validarSesion, permitirAdministracion, controller.modificarPromocion);
+router.patch('/api/v1/promociones/:id_promocion', validarSesion, permitirAdministracion, controller.modificarPromocion);
 
+/**
 /**
  * @openapi
  * /api/promociones/validar/{nombre_codigo}:
  *   post:
- *     summary: Validar un código promocional en el checkout
- *     tags: [Integración Checkout]
+ *     summary: Validar código promocional en checkout (Contrato Checkout)
+ *     tags: [Integración Checkout/Pagos]
  *     parameters:
  *       - in: path
  *         name: nombre_codigo
  *         required: true
  *         schema: { type: string }
- *         example: VERANO2027
  *     requestBody:
  *       required: true
  *       content:
  *         application/json:
- *           schema: { $ref: '#/components/schemas/ValidacionSolicitud' }
+ *           schema:
+ *             type: object
+ *             required: [id_evento, cantidad_entradas, usuario, precio_base]
+ *             properties:
+ *               id_evento: { type: string, example: "evt-123" }
+ *               cantidad_entradas: { type: integer, example: 2 }
+ *               precio_base: { type: number, example: 15000 }
+ *               usuario:
+ *                 type: object
+ *                 properties:
+ *                   id_usuario: { type: string, example: "usr-999" }
+ *                   rol_usuario: { type: string, example: "cliente" }
  *     responses:
- *       200:
- *         description: Código válido
- *         content:
- *           application/json:
- *             schema: { $ref: '#/components/schemas/ValidacionRespuesta' }
- *       400:
- *         description: Parámetros incompletos, código desactivado, de otro evento, fuera de vigencia, sin stock, bajo el mínimo de entradas o límite de usos alcanzado
- *         content:
- *           application/json:
- *             schema: { $ref: '#/components/schemas/ValidacionRespuesta' }
- *             example: { valido: false, mensaje: 'El código promocional ha expirado o aún no entra en vigencia.' }
- *       404:
- *         description: El código no existe
- *         content:
- *           application/json:
- *             schema: { $ref: '#/components/schemas/ValidacionRespuesta' }
- *             example: { valido: false, mensaje: 'El código promocional no existe.' }
+ *       200: { description: Código evaluado exitosamente }
+ *       400: { description: Código expirado, límite superado o entradas insuficientes }
+ *       404: { description: Código no encontrado }
  */
+router.post('/promociones/validar/:nombre_codigo', controller.validarCodigo);
+// Alias público para Checkout cuando consume Promociones a través del Gateway.
 router.post('/api/promociones/validar/:nombre_codigo', controller.validarCodigo);
 
 /**
  * @openapi
- * /api/promociones/evaluar:
+ * /api/v1/promociones/evaluar:
  *   post:
- *     summary: Evaluar el descuento de una compra (servicio requerido por Entradas)
- *     description: |
- *       Entradas/Inventario llama a esta ruta por el API Gateway antes de confirmar la compra
- *       (contrato I2). Si no corresponde descuento responde 200 con `porcentaje_descuento: 0`
- *       y el `motivo`, para que Entradas continúe la compra sin descuento.
+ *     summary: Evaluar promoción vigente para Entradas/Inventario (Contrato Entradas)
  *     tags: [Integración Entradas]
  *     requestBody:
  *       required: true
  *       content:
  *         application/json:
- *           schema: { $ref: '#/components/schemas/EvaluacionSolicitud' }
+ *           schema:
+ *             type: object
+ *             required: [id_evento, id_usuario, cantidad_entradas]
+ *             properties:
+ *               id_evento: { type: string, example: "evt-77889" }
+ *               id_usuario: { type: string, example: "usr-12345" }
+ *               cantidad_entradas: { type: integer, example: 2 }
  *     responses:
- *       200:
- *         description: Evaluación realizada (con o sin descuento)
- *         content:
- *           application/json:
- *             schema: { $ref: '#/components/schemas/EvaluacionRespuesta' }
- *             examples:
- *               con_descuento:
- *                 value: { porcentaje_descuento: 20, id_promocion: '6740c1f2a3b4c5d6e7f80910', nombre_codigo: 'VERANO2027', descripcion: 'Descuento del 20% con el código VERANO2027' }
- *               sin_descuento:
- *                 value: { porcentaje_descuento: 0, motivo: 'expirado', mensaje: 'El código promocional ha expirado.' }
- *       400:
- *         description: Faltan id_evento, id_usuario o cantidad_entradas
- *         content:
- *           application/json:
- *             schema: { $ref: '#/components/schemas/EvaluacionRespuesta' }
- *             example: { porcentaje_descuento: 0, motivo: 'datos_incompletos', mensaje: 'Datos incompletos para evaluar la promoción (id_evento, id_usuario y cantidad_entradas).' }
+ *       200: { description: Evaluación completada }
+ *       400: { description: Datos incompletos }
  */
-router.post('/api/promociones/evaluar', controller.evaluarPromocionVigente);
-
-// Alias de compatibilidad (versiones anteriores y pruebas de evaluaciones previas).
-router.post('/api/v1/promociones', validarSesion, permitirAdministracion, controller.crearPromocion);
-router.get('/api/v1/promociones/evento/:id_evento', controller.listarPorEvento);
-router.patch('/api/v1/promociones/:id_promocion', validarSesion, permitirAdministracion, controller.modificarPromocion);
 router.post('/api/v1/promociones/evaluar', controller.evaluarPromocionVigente);
-router.post('/promociones/validar/:nombre_codigo', controller.validarCodigo);
+// Alias público para el microservicio Entradas detrás del Gateway.
+router.post('/api/promociones/evaluar', controller.evaluarPromocionVigente);
 
 module.exports = router;

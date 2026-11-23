@@ -12,11 +12,7 @@ const PORT = process.env.PORT || 3005;
 const MONGO_URI = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/promociones_db';
 
 // Middlewares
-// CORS con credenciales: el frontend compartido envía la cookie jwt de Auth a través del API Gateway.
-// Con "*" el navegador rechaza la respuesta cuando hay cookies, por eso se refleja el origen.
-// CORS_ORIGINS=http://localhost:3000,... limita los orígenes; vacío = refleja el origen de la petición.
-const ORIGENES = (process.env.CORS_ORIGINS || '').split(',').map((o) => o.trim()).filter(Boolean);
-app.use(cors({ origin: ORIGENES.length ? ORIGENES : true, credentials: true }));
+app.use(cors());
 app.use(express.json());
 
 
@@ -40,15 +36,12 @@ app.use((req, res, next) => {
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 // Estado del microservicio: considera saludable el servicio si MongoDB está conectado.
-// También informa si el consumidor de pagos (RabbitMQ) está activo.
 app.get('/health', (req, res) => {
   const databaseReady = mongoose.connection.readyState === 1;
-  const { estadoBroker } = require('./events/broker');
   return res.status(databaseReady ? 200 : 503).json({
     servicio: 'promociones',
     estado: databaseReady ? 'ok' : 'degradado',
-    base_datos: databaseReady ? 'conectada' : 'no_conectada',
-    broker: estadoBroker
+    base_datos: databaseReady ? 'conectada' : 'no_conectada'
   });
 });
 
