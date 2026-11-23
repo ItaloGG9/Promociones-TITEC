@@ -40,12 +40,15 @@ app.use((req, res, next) => {
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 // Estado del microservicio: considera saludable el servicio si MongoDB está conectado.
+// También informa si el consumidor de pagos (RabbitMQ) está activo.
 app.get('/health', (req, res) => {
   const databaseReady = mongoose.connection.readyState === 1;
+  const { estadoBroker } = require('./events/broker');
   return res.status(databaseReady ? 200 : 503).json({
     servicio: 'promociones',
     estado: databaseReady ? 'ok' : 'degradado',
-    base_datos: databaseReady ? 'conectada' : 'no_conectada'
+    base_datos: databaseReady ? 'conectada' : 'no_conectada',
+    broker: estadoBroker
   });
 });
 

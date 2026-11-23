@@ -28,4 +28,4 @@ Responsable: Nicolas Tapia
 - **Frontend:** FrontendTitec consulta las promociones activas a través del API Gateway.
 - **Panel Organizador:** no se requiere para arrancar este flujo; la validación de si un evento es gratuito queda pendiente hasta disponer de su endpoint real.
 
-Ver [`../GUIA_INTEGRACION_PROMOCIONES.md`](../GUIA_INTEGRACION_PROMOCIONES.md) para pasos de ejecución y pruebas.
+Ver [`INSTALACION.md`](INSTALACION.md) para la instalación, [`INTEGRACIONES.md`](INTEGRACIONES.md) para el detalle de cada integración y [`backend-promociones/tests/README_PRUEBAS_POSTMAN.md`](backend-promociones/tests/README_PRUEBAS_POSTMAN.md) para las pruebas en workstation.
